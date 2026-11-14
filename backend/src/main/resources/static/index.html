@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RuntimeHeal AI — Enterprise Self-Healing SOC & Telemetry</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        socdark: '#070B14',
+                        soccard: '#0F172A',
+                        soccardhover: '#131E35',
+                        socborder: '#1E293B',
+                        socaccent: '#06B6D4',
+                        socemerald: '#10B981',
+                        socviolet: '#8B5CF6',
+                        socamber: '#F59E0B',
+                        socrose: '#F43F5E'
+                    },
+                    boxShadow: {
+                        'cyberglow': '0 0 35px -5px rgba(6, 182, 212, 0.3)',
+                        'purpleglow': '0 0 35px -5px rgba(139, 92, 246, 0.3)',
+                        'cardglow': '0 4px 20px -2px rgba(0, 0, 0, 0.5)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #070B14; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        
+        .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(0.9); } }
+        
+        .mesh-bg {
+            background-color: #070B14;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+        }
+
+        .terminal-scroll {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="mesh-bg text-slate-100 min-h-screen font-sans antialiased selection:bg-cyan-500 selection:text-black">
+
+    <!-- ============================================================== -->
+    <!-- 1. CYBER-GLOW LOGIN SCREEN (Initial Authentication View)       -->
+    <!-- ============================================================== -->
+    <div id="viewLogin" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <!-- Interactive Project-Themed Canvas Background -->
+        <canvas id="canvasLoginMesh" class="absolute inset-0 w-full h-full pointer-events-auto z-0"></canvas>
+
+        <!-- Ambient background glows -->
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div id="loginCard" class="w-full max-w-md relative z-10 pointer-events-auto">
+            <!-- Glassmorphism Card -->
+            <div class="bg-slate-900/85 backdrop-blur-2xl border border-cyan-500/30 rounded-2xl p-8 shadow-cyberglow transition-all duration-300">
+                <!-- Branding Header -->
+                <div class="text-center space-y-3">
+                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-indigo-600 to-purple-600 p-0.5 shadow-lg shadow-cyan-500/30">
+                        <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center text-cyan-400 font-black text-2xl">
+                            ⚡
+                        </div>
+                    </div>
+                    <div>
+                        <div class="inline-block px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[11px] font-semibold tracking-wider uppercase mb-2">
+                            Enterprise Self-Healing SOC
+                        </div>
+                        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-1.5">
+                            RuntimeHeal <span class="text-cyan-400">AI</span>
+                        </h1>
+                        <p class="text-xs text-slate-400 mt-1">Autonomous Runtime Self-Healing & AI Diagnostics</p>
+                    </div>
+                </div>
+
+                <!-- Error Alert Box -->
+                <div id="loginError" class="hidden mt-5 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                    <span id="loginErrorText">⚠️ Invalid credentials. Use default: <strong>admin</strong> / <strong>admin</strong></span>
+                </div>
+
+                <!-- Login Form -->
+                <form id="formLogin" onsubmit="handleLogin(event)" class="mt-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">SOC Operator ID</label>
+                        <div class="relative">
+                            <input type="text" id="inputUsername" value="admin" required autocomplete="username"
+                                class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Security Passcode</label>
+                        <div class="relative">
+                            <input type="password" id="inputPassword" value="admin" required autocomplete="current-password"
+                                class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <button type="submit" id="btnLoginSubmit"
+                            class="w-full py-2.5 px-4 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 shadow-lg shadow-cyan-500/25 active:scale-[0.99] transition duration-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                            <svg id="btnLoginSpinner" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span id="btnLoginText">Authenticate & Enter</span>
+                            <span id="btnLoginArrow">➔</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Footer Credentials Info -->
+                <div class="mt-6 pt-4 border-t border-slate-800 text-center">
+                    <p class="text-[11px] text-slate-500">
+                        Default Demo Access: <code class="text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">admin</code> / <code class="text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">admin</code>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 2. ENTERPRISE SOC APPLICATION LAYOUT (After Authentication)    -->
+    <!-- ============================================================== -->
+    <div id="viewApp" class="hidden min-h-screen flex flex-col md:flex-row" style="display: none !important;">
+
+        <!-- Fixed Left Sidebar (w-64) -->
+        <aside class="w-full md:w-64 bg-slate-950/95 border-b md:border-b-0 md:border-r border-socborder flex-shrink-0 flex flex-col justify-between backdrop-blur-xl">
+            <!-- Top Section -->
+            <div class="p-5 space-y-6">
+                <!-- Brand Title -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white font-black text-sm">
+                        ⚡
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-base font-bold tracking-tight text-white">RuntimeHeal <span class="text-cyan-400">AI</span></h2>
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot" title="SOC Live"></span>
+                        </div>
+                        <span class="text-[10px] text-slate-400 tracking-wider uppercase font-semibold">Enterprise SOC</span>
+                    </div>
+                </div>
+
+                <!-- System Status Pills -->
+                <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> ByteBuddy Agent
+                        </span>
+                        <span id="sidebarAgentStatus" class="font-mono text-cyan-400 font-bold">ACTIVE</span>
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> Local LLM
+                        </span>
+                        <span id="sidebarOllamaStatus" class="font-mono text-purple-300 font-bold">qwen2.5:3b</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Items -->
+                <nav class="space-y-1 text-xs">
+                    <!-- 1. Dashboard Overview -->
+                    <button onclick="switchTab('overview')" id="nav-overview" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-white bg-cyan-500/15 border border-cyan-500/30">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 text-cyan-400"></i>
+                        <span>Dashboard Overview</span>
+                    </button>
+
+                    <!-- 2. Runtime Fault Injector -->
+                    <button onclick="switchTab('fault-injector')" id="nav-fault-injector" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900">
+                        <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Runtime Fault Injector</span>
+                    </button>
+
+                    <!-- 3. Incidents Telemetry -->
+                    <button onclick="switchTab('incidents')" id="nav-incidents" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900">
+                        <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i>
+                        <span>Incidents Telemetry</span>
+                    </button>
+
+                    <!-- 4. Self-Healing Audit Trail -->
+                    <button onclick="switchTab('audit')" id="nav-audit" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900">
+                        <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
+                        <span>Self-Healing Audit</span>
+                    </button>
+
+                    <!-- 5. Safety & Policy Guardrails -->
+                    <button onclick="switchTab('policy')" id="nav-policy" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+                        <span>Safety & Policy</span>
+                    </button>
+
+                    <!-- 6. Recovery Analytics -->
+                    <button onclick="switchTab('analytics')" id="nav-analytics" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-rose-400"></i>
+                        <span>Recovery Analytics</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Bottom Section: Operator Card & Logout -->
+            <div class="p-4 border-t border-socborder bg-slate-950">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400 font-bold text-xs">
+                            OP
+                        </div>
+                        <div>
+                            <div class="text-xs font-semibold text-slate-200">Operator: Admin</div>
+                            <div class="text-[10px] text-slate-500">Security Level 4</div>
+                        </div>
+                    </div>
+                    <button onclick="handleLogout()" title="Logout Session" class="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/40 transition">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Top App Bar -->
+            <header class="border-b border-socborder bg-slate-950/70 backdrop-blur-md px-6 py-3.5 flex flex-wrap justify-between items-center gap-4 sticky top-0 z-30">
+                <div class="flex items-center gap-3">
+                    <div class="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+                        <span>SOC Operations</span>
+                        <span class="text-slate-600">/</span>
+                        <span id="breadcrumbCurrent" class="text-cyan-400 font-semibold">Dashboard Overview</span>
+                    </div>
+                </div>
+
+                <!-- Badges & Auto-Refresh Controls -->
+                <div class="flex items-center gap-3 text-xs">
+                    <!-- Agent Badge -->
+                    <div id="badgeAgent" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                        <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot" id="dotAgent"></span>
+                        <span class="text-slate-400">Agent:</span>
+                        <span class="font-semibold text-slate-200 font-mono" id="textAgent">Checking...</span>
+                    </div>
+
+                    <!-- Ollama Badge -->
+                    <div id="badgeOllama" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                        <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot" id="dotOllama"></span>
+                        <span class="text-slate-400">Ollama:</span>
+                        <span class="font-semibold text-slate-200 font-mono" id="textOllama">Checking...</span>
+                    </div>
+
+                    <!-- Auto-Refresh Toggle -->
+                    <button id="btnAutoRefresh" onclick="toggleAutoRefresh()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-600 transition text-slate-300">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="iconRefresh"></i>
+                        <span id="textAutoRefresh">Auto (3s)</span>
+                    </button>
+                    <button onclick="refreshAllData()" class="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 transition text-slate-300" title="Manual Refresh">
+                        <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dynamic Viewport Body -->
+            <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                <!-- ============================================================== -->
+                <!-- VIEW 1: DASHBOARD OVERVIEW                                     -->
+                <!-- ============================================================== -->
+                <div id="tab-overview" class="tab-pane space-y-6">
+                    <!-- KPI Metrics Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <!-- Total Incidents -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-4 flex flex-col justify-between shadow-cardglow hover:border-cyan-500/40 transition">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Total Incidents</span>
+                                <div class="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                                    <i data-lucide="radio" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-baseline gap-2">
+                                <span class="text-3xl font-extrabold text-white" id="kpiTotalIncidents">0</span>
+                                <span class="text-xs text-slate-500 font-medium">intercepted</span>
+                            </div>
+                        </div>
+
+                        <!-- Successful Heals -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-4 flex flex-col justify-between shadow-cardglow hover:border-emerald-500/40 transition">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Successful Heals</span>
+                                <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-baseline gap-2">
+                                <span class="text-3xl font-extrabold text-emerald-400" id="kpiSuccessfulHeals">0</span>
+                                <span class="text-xs text-slate-500 font-medium">suppressed</span>
+                            </div>
+                        </div>
+
+                        <!-- Recovery Rate -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-4 flex flex-col justify-between shadow-cardglow hover:border-purple-500/40 transition">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Recovery Rate</span>
+                                <div class="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                                    <i data-lucide="activity" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-baseline gap-2">
+                                <span class="text-3xl font-extrabold text-purple-400" id="kpiSuccessRate">100%</span>
+                                <span class="text-xs text-slate-500 font-medium">effective</span>
+                            </div>
+                        </div>
+
+                        <!-- Blocked by Policy -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-4 flex flex-col justify-between shadow-cardglow hover:border-amber-500/40 transition">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Policy Blocked</span>
+                                <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-baseline gap-2">
+                                <span class="text-3xl font-extrabold text-amber-400" id="kpiBlockedPolicy">0</span>
+                                <span class="text-xs text-slate-500 font-medium">denylisted</span>
+                            </div>
+                        </div>
+
+                        <!-- Circuit Breakers -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-4 flex flex-col justify-between shadow-cardglow hover:border-rose-500/40 transition">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Circuit Breakers</span>
+                                <div class="p-1.5 rounded-lg bg-rose-500/10 text-rose-400">
+                                    <i data-lucide="power" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-baseline gap-2">
+                                <span class="text-2xl font-extrabold text-slate-200" id="kpiCircuitBreakers">0 Open</span>
+                                <span class="text-xs text-slate-500 font-medium" id="kpiBlockedCb">0 blocked</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Overview: System Health & Live Activity Feed -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- System Operational Status Card -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-4">
+                            <div class="flex items-center justify-between border-b border-socborder pb-3">
+                                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                    <i data-lucide="server" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>Framework Topology</span>
+                                </h3>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">NOMINAL</span>
+                            </div>
+
+                            <div class="space-y-3 text-xs">
+                                <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
+                                    <div class="text-[10px] uppercase text-slate-500 font-semibold">Bytecode Instrumentation Engine</div>
+                                    <div class="text-slate-200 font-medium flex items-center justify-between">
+                                        <span>ByteBuddy 1.14.19</span>
+                                        <span class="text-cyan-400 font-mono">@Advice Interceptor</span>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
+                                    <div class="text-[10px] uppercase text-slate-500 font-semibold">Diagnostic Intelligence</div>
+                                    <div class="text-slate-200 font-medium flex items-center justify-between">
+                                        <span>Local Ollama Server</span>
+                                        <span class="text-purple-400 font-mono">qwen2.5:3b (Port 11434)</span>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
+                                    <div class="text-[10px] uppercase text-slate-500 font-semibold">Target Business Scope</div>
+                                    <div class="text-slate-200 font-medium flex items-center justify-between">
+                                        <span class="truncate max-w-[160px]">com.runtimeheal.backend.sample.service.*</span>
+                                        <span class="text-amber-400 font-mono">Scoped</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-2">
+                                <button onclick="switchTab('fault-injector')" class="w-full py-2 px-3 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold flex items-center justify-center gap-2 transition">
+                                    <span>Open Fault Injector</span>
+                                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mini Incidents & Actions Feeds (2 Cols) -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <!-- Recent Incidents Snapshot -->
+                            <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-3">
+                                <div class="flex items-center justify-between border-b border-socborder pb-3">
+                                    <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                        <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i>
+                                        <span>Recent FailureContext Events</span>
+                                    </h3>
+                                    <button onclick="switchTab('incidents')" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1">
+                                        <span>View All</span>
+                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                                <div id="overviewIncidentsSnippet" class="space-y-2 text-xs">
+                                    <!-- Injected via JS -->
+                                    <div class="text-center p-6 text-slate-500">No recent incidents recorded.</div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Heals Snapshot -->
+                            <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-3">
+                                <div class="flex items-center justify-between border-b border-socborder pb-3">
+                                    <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                                        <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i>
+                                        <span>Recent Recovery Executions</span>
+                                    </h3>
+                                    <button onclick="switchTab('audit')" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1">
+                                        <span>View All</span>
+                                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                                <div id="overviewActionsSnippet" class="space-y-2 text-xs">
+                                    <!-- Injected via JS -->
+                                    <div class="text-center p-6 text-slate-500">No recovery actions recorded.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================== -->
+                <!-- VIEW 2: RUNTIME FAULT INJECTOR                                 -->
+                <!-- ============================================================== -->
+                <div id="tab-fault-injector" class="tab-pane hidden space-y-6">
+                    <!-- Control Banner -->
+                    <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow">
+                        <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                            <div>
+                                <h2 class="text-sm uppercase tracking-wider font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>Interactive Runtime Fault Injector</span>
+                                </h2>
+                                <p class="text-xs text-slate-400 mt-0.5">Simulate controlled exceptions in host services to evaluate dynamic ByteBuddy interception and AI self-healing.</p>
+                            </div>
+                            <span class="text-[10px] px-2.5 py-1 rounded-md bg-slate-900 border border-slate-700 text-slate-300 font-mono">
+                                Target: OrderProcessingService & PaymentGatewayService
+                            </span>
+                        </div>
+
+                        <!-- Fault Cards Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                            <!-- Fault 1: Arithmetic -->
+                            <button onclick="triggerFault('arithmetic')" class="group p-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/50 transition flex flex-col text-left space-y-2 shadow-sm">
+                                <div class="flex items-center justify-between w-full">
+                                    <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                                        <i data-lucide="divide" class="w-3.5 h-3.5"></i> Arithmetic Fault
+                                    </span>
+                                    <span class="text-[10px] text-slate-500 group-hover:text-emerald-400 transition">Execute ➔</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">Division by zero in calculateDiscountRatio()</p>
+                                <span class="text-[10px] font-mono text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                    Expect: Healed (0 fallback, 200 OK)
+                                </span>
+                            </button>
+
+                            <!-- Fault 2: NPE -->
+                            <button onclick="triggerFault('npe')" class="group p-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-cyan-500/50 transition flex flex-col text-left space-y-2 shadow-sm">
+                                <div class="flex items-center justify-between w-full">
+                                    <span class="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                                        <i data-lucide="file-question" class="w-3.5 h-3.5"></i> Null Dereference
+                                    </span>
+                                    <span class="text-[10px] text-slate-500 group-hover:text-cyan-400 transition">Execute ➔</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">Null customer profile in retrieveCustomerPreference()</p>
+                                <span class="text-[10px] font-mono text-cyan-400/90 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                                    Expect: Healed (Default DTO, 200 OK)
+                                </span>
+                            </button>
+
+                            <!-- Fault 3: Denylist -->
+                            <button onclick="triggerFault('illegal-argument')" class="group p-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 transition flex flex-col text-left space-y-2 shadow-sm">
+                                <div class="flex items-center justify-between w-full">
+                                    <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                                        <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Denylist Guardrail
+                                    </span>
+                                    <span class="text-[10px] text-slate-500 group-hover:text-amber-400 transition">Execute ➔</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">Negative amount in validateAndProcessTransfer()</p>
+                                <span class="text-[10px] font-mono text-amber-400/90 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                    Expect: BLOCKED_POLICY (400 Bad Req)
+                                </span>
+                            </button>
+
+                            <!-- Fault 4: Timeout -->
+                            <button onclick="triggerFault('timeout')" class="group p-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/50 transition flex flex-col text-left space-y-2 shadow-sm">
+                                <div class="flex items-center justify-between w-full">
+                                    <span class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5"></i> Gateway Latency SLA
+                                    </span>
+                                    <span class="text-[10px] text-slate-500 group-hover:text-rose-400 transition">Execute ➔</span>
+                                </div>
+                                <p class="text-[11px] text-slate-400">External provider latency in executeGatewayCall()</p>
+                                <span class="text-[10px] font-mono text-rose-400/90 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                                    Expect: Denylist Block or Retried
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic JVM Process Attachment Card -->
+                    <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="cpu" class="w-4 h-4 text-purple-400"></i>
+                                    <span>External JVM Target Attachment</span>
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Attach the ByteBuddy RuntimeHeal agent dynamically into any running external Java process via ByteBuddyAgent.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="inputTargetPid" placeholder="Target Java PID (e.g. 14208)"
+                                    class="px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-purple-500 w-56">
+                                <button onclick="attachExternalPid()"
+                                    class="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md transition flex items-center gap-1.5 active:scale-95">
+                                    <i data-lucide="link" class="w-3.5 h-3.5"></i>
+                                    <span>Attach Agent</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Terminal Output Console -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+                        <!-- Terminal Bar -->
+                        <div class="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-rose-500/80 inline-block"></span>
+                                <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                                <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+                                <span class="ml-2 text-xs font-mono text-slate-400">soc-fault-terminal@runtimeheal:~$</span>
+                            </div>
+                            <button onclick="clearTerminal()" class="text-[11px] text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 transition">
+                                Clear Console
+                            </button>
+                        </div>
+                        <!-- Terminal Screen -->
+                        <div id="terminalConsole" class="terminal-scroll p-4 text-xs font-mono text-slate-300 space-y-1.5 max-h-96 overflow-y-auto bg-slate-950 leading-relaxed">
+                            <div class="text-emerald-400">[SYSTEM] RuntimeHeal Enterprise SOC Terminal Initialized.</div>
+                            <div class="text-slate-500">[INFO] Ready to capture runtime faults and bytecode self-healing telemetry. Trigger any fault button above.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================== -->
+                <!-- VIEW 3: INCIDENTS TELEMETRY                                    -->
+                <!-- ============================================================== -->
+                <div id="tab-incidents" class="tab-pane hidden space-y-6">
+                    <div class="bg-soccard border border-socborder rounded-xl shadow-cardglow overflow-hidden">
+                        <div class="p-4 border-b border-socborder flex flex-wrap justify-between items-center gap-3 bg-slate-900/50">
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>Intercepted FailureContext Incidents</span>
+                                </h3>
+                                <p class="text-xs text-slate-400">Captured in-memory via ByteBuddy ExceptionCaptureAdvice</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 font-mono" id="labelIncidentCount">0 incidents</span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-socborder">
+                                    <tr>
+                                        <th class="p-3.5">Incident ID</th>
+                                        <th class="p-3.5">Exception Type</th>
+                                        <th class="p-3.5">Target Method</th>
+                                        <th class="p-3.5">Timestamp</th>
+                                        <th class="p-3.5 text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyIncidents" class="divide-y divide-socborder font-mono text-[11px]">
+                                    <tr>
+                                        <td colspan="5" class="p-8 text-center text-slate-500 font-sans">No runtime incidents recorded yet. Trigger a fault from the Fault Injector!</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================== -->
+                <!-- VIEW 4: SELF-HEALING AUDIT TRAIL                               -->
+                <!-- ============================================================== -->
+                <div id="tab-audit" class="tab-pane hidden space-y-6">
+                    <div class="bg-soccard border border-socborder rounded-xl shadow-cardglow overflow-hidden">
+                        <div class="p-4 border-b border-socborder flex flex-wrap justify-between items-center gap-3 bg-slate-900/50">
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
+                                    <span>Automated Self-Healing Audit Trail</span>
+                                </h3>
+                                <p class="text-xs text-slate-400">Decisions, bytecode suppressions, and injected fallbacks</p>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 font-mono" id="labelActionCount">0 actions</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider text-[10px] font-semibold border-b border-socborder">
+                                    <tr>
+                                        <th class="p-3.5">Action ID</th>
+                                        <th class="p-3.5">Method</th>
+                                        <th class="p-3.5">Strategy</th>
+                                        <th class="p-3.5">Status</th>
+                                        <th class="p-3.5">Fallback Injected</th>
+                                        <th class="p-3.5 text-right">Latency</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyActions" class="divide-y divide-socborder font-mono text-[11px]">
+                                    <tr>
+                                        <td colspan="6" class="p-8 text-center text-slate-500 font-sans">No self-healing actions attempted yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================== -->
+                <!-- VIEW 5: SAFETY & POLICY GUARDRAILS                             -->
+                <!-- ============================================================== -->
+                <div id="tab-policy" class="tab-pane hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Left Panel: Engine Switches & Thresholds -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-6">
+                            <div class="flex justify-between items-center border-b border-socborder pb-3">
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>Autonomous Healing Policies</span>
+                                </h3>
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700 font-mono">DYNAMIC</span>
+                            </div>
+
+                            <!-- Master Engine Switch -->
+                            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slate-900/70 border border-slate-800">
+                                <div>
+                                    <div class="text-xs font-bold text-slate-200">Master Self-Healing Engine</div>
+                                    <div class="text-[11px] text-slate-400">Global killswitch for runtime bytecode exception suppression</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="toggleHealingEnabled" onchange="updatePolicyConfig()" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+
+                            <!-- Confidence Threshold Slider -->
+                            <div class="space-y-3 p-3.5 rounded-xl bg-slate-900/70 border border-slate-800">
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="font-bold text-slate-200">Minimum AI Diagnostic Confidence</span>
+                                    <span class="font-mono text-cyan-400 font-extrabold text-sm" id="valMinConfidence">0.70</span>
+                                </div>
+                                <input type="range" id="sliderConfidence" min="0.50" max="0.95" step="0.05" value="0.70" onchange="updatePolicyConfig()" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                                <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                                    <span>Relaxed (0.50)</span>
+                                    <span class="text-cyan-400 font-mono">Default: 0.70</span>
+                                    <span>Strict (0.95)</span>
+                                </div>
+                            </div>
+
+                            <!-- Policy Guidelines Info -->
+                            <div class="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-slate-300 space-y-1">
+                                <div class="font-semibold text-purple-300 flex items-center gap-1.5">
+                                    <i data-lucide="info" class="w-4 h-4"></i> Autonomous Decision Gate
+                                </div>
+                                <p class="text-[11px] text-slate-400">
+                                    When an LLM diagnosis reports confidence below this threshold, the self-healing engine skips automated action and safely rethrows the original exception.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Transactional Denylist & Circuit Breakers -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-6">
+                            <!-- Denylist Section -->
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center border-b border-socborder pb-3">
+                                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                        <i data-lucide="shield-ban" class="w-4 h-4 text-amber-400"></i>
+                                        <span>Transactional Method Denylist</span>
+                                    </h3>
+                                    <span class="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-mono">GUARDRAIL</span>
+                                </div>
+                                <p class="text-xs text-slate-400">Methods strictly prohibited from automated bytecode tampering to preserve transactional integrity:</p>
+                                <div id="listDenylist" class="space-y-1.5 pt-1">
+                                    <!-- Dynamic -->
+                                </div>
+                            </div>
+
+                            <!-- Circuit Breakers Section -->
+                            <div class="space-y-3 pt-3 border-t border-socborder">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                            <i data-lucide="power" class="w-4 h-4 text-rose-400"></i>
+                                            <span>Method Circuit Breakers</span>
+                                        </h3>
+                                        <p class="text-[11px] text-slate-400">Trips to OPEN state after 5 failures in 60s</p>
+                                    </div>
+                                    <button onclick="resetCircuitBreakers()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition flex items-center gap-1.5">
+                                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                        <span>Reset All</span>
+                                    </button>
+                                </div>
+                                <div id="listCircuitBreakers" class="space-y-1.5 pt-1 text-xs">
+                                    <div class="text-xs text-slate-500 italic p-2">No method circuit breakers tripped.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================================== -->
+                <!-- VIEW 6: RECOVERY ANALYTICS                                     -->
+                <!-- ============================================================== -->
+                <div id="tab-analytics" class="tab-pane hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Outcome Chart (1 col) -->
+                        <div class="bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-4">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="pie-chart" class="w-4 h-4 text-cyan-400"></i>
+                                <span>Recovery Outcome Distribution</span>
+                            </h3>
+                            <div class="h-64 flex items-center justify-center relative">
+                                <canvas id="chartOutcomes"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Analytics Breakdown (2 cols) -->
+                        <div class="lg:col-span-2 bg-soccard border border-socborder rounded-xl p-5 shadow-cardglow space-y-4">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-purple-400"></i>
+                                <span>Recovery Performance Analysis</span>
+                            </h3>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                                    <span class="text-slate-400 text-[11px] font-semibold uppercase">Zero-Downtime Reliability Rate</span>
+                                    <div class="text-2xl font-bold text-emerald-400" id="analyticsUptime">100%</div>
+                                    <p class="text-[11px] text-slate-500">Autonomous recovery percentage across all runtime exception interception events.</p>
+                                </div>
+
+                                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                                    <span class="text-slate-400 text-[11px] font-semibold uppercase">Mean Time to Recovery (MTTR)</span>
+                                    <div class="text-2xl font-bold text-cyan-400" id="analyticsAvgLatency">0 ms</div>
+                                    <p class="text-[11px] text-slate-500">Live average latency covering diagnosis, ByteBuddy bytecode suppression, and fallback execution.</p>
+                                </div>
+
+                                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                                    <span class="text-slate-400 text-[11px] font-semibold uppercase">Verified Cache Hit Rate (&lt;5ms)</span>
+                                    <div class="text-2xl font-bold text-amber-400" id="analyticsPolicyEnforcement">0% (&lt;5ms)</div>
+                                    <p class="text-[11px] text-slate-500">Sub-5ms low-latency automated recovery via persistent Verified Strategy Cache.</p>
+                                </div>
+
+                                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                                    <span class="text-slate-400 text-[11px] font-semibold uppercase">Live JVM Heap Consumption</span>
+                                    <div class="text-2xl font-bold text-purple-400" id="analyticsCircuitBreaker">Active</div>
+                                    <p class="text-[11px] text-slate-500">Real-time JVM heap memory allocation tracked via java.lang.management.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 3. INCIDENT DETAIL MODAL                                       -->
+    <!-- ============================================================== -->
+    <div id="modalIncident" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-soccard border border-socborder rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start border-b border-socborder pb-3">
+                <div>
+                    <h3 class="text-base font-bold text-white flex items-center gap-2" id="modalIncidentId">INC-AGENT-XXXX</h3>
+                    <p class="text-xs text-slate-400" id="modalTimestamp"></p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white text-lg font-bold p-1">✕</button>
+            </div>
+
+            <!-- Exception Overview -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-semibold">Exception Type</span>
+                    <span class="font-mono text-rose-400 font-bold" id="modalExceptionType"></span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                    <span class="text-slate-500 block text-[10px] uppercase font-semibold">Target Method</span>
+                    <span class="font-mono text-slate-200 font-bold truncate block" id="modalMethod"></span>
+                </div>
+            </div>
+
+            <!-- Message -->
+            <div>
+                <span class="text-slate-400 text-xs font-semibold block mb-1">Exception Message</span>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300" id="modalMessage"></div>
+            </div>
+
+            <!-- LLM Diagnostic Report Box -->
+            <div class="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 space-y-2.5" id="boxDiagnostic">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                        <i data-lucide="cpu" class="w-4 h-4"></i> Local Ollama AI Diagnostic Report
+                    </span>
+                    <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-bold" id="modalConfidence">Confidence: 0.85</span>
+                </div>
+                <div class="text-xs text-slate-200">
+                    <span class="text-slate-400 font-semibold">Root Cause:</span> <span id="modalRootCause"></span>
+                </div>
+                <div class="text-xs text-slate-300">
+                    <span class="text-slate-400 font-semibold">Explanation:</span> <span id="modalExplanation"></span>
+                </div>
+                <div class="text-xs text-slate-200 flex items-center gap-2 pt-1">
+                    <span class="text-slate-400 font-semibold">Suggested Strategy:</span>
+                    <span class="px-2 py-0.5 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-400 font-bold" id="modalStrategy">RETURN_FALLBACK</span>
+                </div>
+            </div>
+
+            <!-- Stack Trace -->
+            <div>
+                <span class="text-slate-400 text-xs font-semibold block mb-1">Intercepted Stack Trace</span>
+                <pre class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[10px] text-slate-400 overflow-x-auto max-h-40" id="modalStackTrace"></pre>
+            </div>
+
+            <div class="text-right pt-2">
+                <button onclick="closeModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white border border-slate-600 transition">
+                    Close Inspector
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 4. FLOATING ACTION TOAST                                        -->
+    <!-- ============================================================== -->
+    <div id="toastAction" class="hidden fixed bottom-6 right-6 z-50 p-3 rounded-xl text-xs max-w-sm flex items-center justify-between gap-3 shadow-2xl transition border">
+        <span id="toastMessage">Action notification</span>
+        <span class="text-slate-400 text-[10px] font-mono" id="toastTimestamp"></span>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 5. JAVASCRIPT SOC CONTROLLER                                   -->
+    <!-- ============================================================== -->
+    <script>
+        // State
+        let autoRefreshInterval = null;
+        let isAutoRefresh = true;
+        let outcomeChart = null;
+        let cachedIncidents = [];
+        let cachedActions = [];
+        let cachedDiagnostics = {};
+        let currentTab = 'overview';
+
+        // Check authentication state on page load
+        document.addEventListener('DOMContentLoaded', checkAuthOnLoad);
+
+        async function checkAuthOnLoad() {
+            initIcons();
+            // Start canvas immediately for login screen
+            startLoginCanvas();
+
+            try {
+                const res = await fetch('/api/auth/status', { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.authenticated) {
+                        sessionStorage.setItem('soc_authenticated', 'true');
+                        showAppLayout();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('[AUTH] Session status check failed, defaulting to mandatory login gate.', e);
+            }
+
+            sessionStorage.removeItem('soc_authenticated');
+            showLoginLayout();
+        }
+
+        function initIcons() {
+            if (window.lucide && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
+        }
+
+        // ==========================================
+        // Authentication Controller
+        // ==========================================
+        async function handleLogin(event) {
+            event.preventDefault();
+            const u = document.getElementById('inputUsername').value.trim();
+            const p = document.getElementById('inputPassword').value.trim();
+            const errDiv = document.getElementById('loginError');
+            const errText = document.getElementById('loginErrorText');
+            const btnSubmit = document.getElementById('btnLoginSubmit');
+            const btnSpinner = document.getElementById('btnLoginSpinner');
+            const btnText = document.getElementById('btnLoginText');
+            const btnArrow = document.getElementById('btnLoginArrow');
+            const loginCard = document.getElementById('loginCard');
+
+            // Inline validation
+            if (!u || !p) {
+                if (errText) errText.innerText = '⚠️ Please enter both SOC Operator ID and Passcode.';
+                errDiv.classList.remove('hidden');
+                triggerCardShake();
+                return;
+            }
+
+            // UI loading state
+            btnSubmit.disabled = true;
+            btnSpinner.classList.remove('hidden');
+            btnArrow.classList.add('hidden');
+            btnText.innerText = 'Verifying Security Passcode...';
+            errDiv.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p }),
+                    credentials: 'include'
+                });
+
+                if (res.ok) {
+                    sessionStorage.setItem('soc_authenticated', 'true');
+                    errDiv.classList.add('hidden');
+                    showAppLayout();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    if (errText) errText.innerText = `⚠️ ${err.message || 'Invalid credentials. Access Denied.'}`;
+                    errDiv.classList.remove('hidden');
+                    triggerCardShake();
+                }
+            } catch (e) {
+                if (errText) errText.innerText = `⚠️ Authentication Gateway Error: ${e.message}`;
+                errDiv.classList.remove('hidden');
+                triggerCardShake();
+            } finally {
+                btnSubmit.disabled = false;
+                btnSpinner.classList.add('hidden');
+                btnArrow.classList.remove('hidden');
+                btnText.innerText = 'Authenticate & Enter';
+            }
+        }
+
+        function triggerCardShake() {
+            const card = document.getElementById('loginCard');
+            if (!card) return;
+            card.classList.remove('animate-shake');
+            void card.offsetWidth; // Force CSS reflow
+            card.classList.add('animate-shake');
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            } catch (e) {}
+            sessionStorage.removeItem('soc_authenticated');
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            showLoginLayout();
+        }
+
+        function showLoginLayout() {
+            const viewLogin = document.getElementById('viewLogin');
+            const viewApp = document.getElementById('viewApp');
+            if (viewApp) {
+                viewApp.style.setProperty('display', 'none', 'important');
+                viewApp.classList.add('hidden');
+            }
+            if (viewLogin) {
+                viewLogin.style.display = 'flex';
+                viewLogin.classList.remove('hidden');
+            }
+            startLoginCanvas();
+            initIcons();
+        }
+
+        function showAppLayout() {
+            stopLoginCanvas();
+            const viewLogin = document.getElementById('viewLogin');
+            const viewApp = document.getElementById('viewApp');
+            if (viewLogin) {
+                viewLogin.style.display = 'none';
+                viewLogin.classList.add('hidden');
+            }
+            if (viewApp) {
+                viewApp.style.removeProperty('display');
+                viewApp.classList.remove('hidden');
+            }
+            initChart();
+            refreshAllData();
+            startAutoRefresh();
+            switchTab('overview');
+            initIcons();
+        }
+
+        // ==============================================================
+        // Interactive Canvas Animation Engine (Bytecode + AI Mesh)
+        // ==============================================================
+        let canvasElem = null;
+        let canvasCtx = null;
+        let canvasAnimId = null;
+        let isCanvasRunning = false;
+        let meshNodes = [];
+        let meshPulses = [];
+        let meshRipples = [];
+        let meshLabels = [];
+        let mouseX = null;
+        let mouseY = null;
+        let lastFaultPulseTime = 0;
+
+        const NODE_SPECS = [
+            { type: 'JVM', label: 'OrderService', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.7)', radius: 4 },
+            { type: 'JVM', label: 'PaymentService', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.7)', radius: 4 },
+            { type: 'JVM', label: 'invokeVirtual', color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.7)', radius: 3.5 },
+            { type: 'JVM', label: 'getfield', color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.7)', radius: 3.5 },
+            { type: 'ADVICE', label: '@Advice.OnMethodExit', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.9)', radius: 5.5 },
+            { type: 'ADVICE', label: 'BytecodeInterceptor', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.9)', radius: 5 },
+            { type: 'LLM', label: 'qwen2.5:3b', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 6 },
+            { type: 'LLM', label: 'Ollama-Client', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 5.5 },
+            { type: 'CACHE', label: 'StrategyCache', color: '#10b981', glow: 'rgba(16, 185, 129, 0.9)', radius: 5 },
+            { type: 'CACHE', label: 'FallbackEngine', color: '#10b981', glow: 'rgba(16, 185, 129, 0.9)', radius: 5 }
+        ];
+
+        const TELEMETRY_STREAM = [
+            { text: '@Advice.OnMethodExit [ByteBuddy 1.14]', color: '#8b5cf6' },
+            { text: 'Local LLM: qwen2.5:3b (Ollama)', color: '#ec4899' },
+            { text: 'CIRCUIT: CLOSED [STABLE]', color: '#10b981' },
+            { text: 'MTTR < 5ms (Verified Strategy Cache)', color: '#06b6d4' },
+            { text: 'Zero Source Code Modification', color: '#38bdf8' },
+            { text: 'Type-Safe Fallback Injection', color: '#10b981' },
+            { text: 'Dynamic Agent PID Interception', color: '#f59e0b' }
+        ];
+
+        function initLoginCanvas() {
+            canvasElem = document.getElementById('canvasLoginMesh');
+            if (!canvasElem) return;
+            canvasCtx = canvasElem.getContext('2d');
+            resizeLoginCanvas();
+
+            window.removeEventListener('resize', resizeLoginCanvas);
+            window.addEventListener('resize', resizeLoginCanvas);
+
+            // Mouse tracking
+            window.removeEventListener('mousemove', handleCanvasMouseMove);
+            window.addEventListener('mousemove', handleCanvasMouseMove);
+            window.removeEventListener('mouseleave', handleCanvasMouseLeave);
+            window.addEventListener('mouseleave', handleCanvasMouseLeave);
+
+            // Click shockwaves
+            window.removeEventListener('click', handleCanvasClick);
+            window.addEventListener('click', handleCanvasClick);
+
+            // Populate Nodes
+            meshNodes = [];
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const nodeCount = Math.min(65, Math.max(35, Math.floor((w * h) / 25000)));
+
+            for (let i = 0; i < nodeCount; i++) {
+                const spec = NODE_SPECS[i % NODE_SPECS.length];
+                meshNodes.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    vx: (Math.random() - 0.5) * 0.7,
+                    vy: (Math.random() - 0.5) * 0.7,
+                    radius: spec.radius,
+                    baseRadius: spec.radius,
+                    type: spec.type,
+                    label: spec.label,
+                    color: spec.color,
+                    glow: spec.glow,
+                    pulsePhase: Math.random() * Math.PI * 2,
+                    interceptFlash: 0
+                });
+            }
+
+            // Populate Floating Telemetry Labels
+            meshLabels = TELEMETRY_STREAM.map((item, idx) => ({
+                text: item.text,
+                color: item.color,
+                x: (w / TELEMETRY_STREAM.length) * idx + (Math.random() * 40),
+                y: 80 + Math.random() * (h - 160),
+                vx: (Math.random() - 0.5) * 0.35,
+                vy: (Math.random() - 0.5) * 0.25,
+                alpha: 0.35 + Math.random() * 0.25
+            }));
+
+            meshPulses = [];
+            meshRipples = [];
+            lastFaultPulseTime = Date.now();
+        }
+
+        function resizeLoginCanvas() {
+            if (!canvasElem) return;
+            const dpr = window.devicePixelRatio || 1;
+            canvasElem.width = window.innerWidth * dpr;
+            canvasElem.height = window.innerHeight * dpr;
+            canvasElem.style.width = window.innerWidth + 'px';
+            canvasElem.style.height = window.innerHeight + 'px';
+            if (canvasCtx) {
+                canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
+                canvasCtx.scale(dpr, dpr);
+            }
+        }
+
+        function handleCanvasMouseMove(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }
+
+        function handleCanvasMouseLeave() {
+            mouseX = null;
+            mouseY = null;
+        }
+
+        function handleCanvasClick(e) {
+            // Ignore clicks directly inside input fields
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
+
+            // Spawn radial healing shockwave
+            meshRipples.push({
+                x: e.clientX,
+                y: e.clientY,
+                radius: 0,
+                maxRadius: 280,
+                speed: 7,
+                alpha: 0.9,
+                color: '#10b981'
+            });
+
+            // Instant interactive heal: any active fault pulse turns emerald
+            meshPulses.forEach(p => {
+                if (p.status === 'FAULT') {
+                    p.status = 'HEALED';
+                    p.color = '#10b981';
+                }
+            });
+        }
+
+        function startLoginCanvas() {
+            if (isCanvasRunning) return;
+            if (!canvasElem || !canvasCtx) {
+                initLoginCanvas();
+            }
+            isCanvasRunning = true;
+            animateLoginCanvas();
+        }
+
+        function stopLoginCanvas() {
+            if (canvasAnimId) {
+                cancelAnimationFrame(canvasAnimId);
+                canvasAnimId = null;
+            }
+            isCanvasRunning = false;
+        }
+
+        function spawnPulse(forceFault = false) {
+            if (meshNodes.length < 2) return;
+            const idxA = Math.floor(Math.random() * meshNodes.length);
+            let candidates = [];
+            const nodeA = meshNodes[idxA];
+
+            for (let j = 0; j < meshNodes.length; j++) {
+                if (j === idxA) continue;
+                const nodeB = meshNodes[j];
+                const d = Math.hypot(nodeA.x - nodeB.x, nodeA.y - nodeB.y);
+                if (d < 170) {
+                    candidates.push({ node: nodeB, dist: d });
+                }
+            }
+
+            if (candidates.length === 0) return;
+            const target = candidates[Math.floor(Math.random() * candidates.length)].node;
+
+            const isFault = forceFault || (Math.random() < 0.28);
+            meshPulses.push({
+                from: nodeA,
+                to: target,
+                progress: 0,
+                speed: isFault ? 0.012 : 0.018,
+                status: isFault ? 'FAULT' : 'NORMAL', // 'FAULT', 'HEALED', 'NORMAL'
+                color: isFault ? '#ef4444' : '#06b6d4',
+                size: isFault ? 4.5 : 3,
+                trail: []
+            });
+        }
+
+        function animateLoginCanvas() {
+            if (!isCanvasRunning || !canvasCtx) return;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            canvasCtx.clearRect(0, 0, w, h);
+
+            // Periodically inject fault anomaly pulses
+            const now = Date.now();
+            if (now - lastFaultPulseTime > 1400) {
+                spawnPulse(true);
+                lastFaultPulseTime = now;
+            }
+            if (meshPulses.length < 12 && Math.random() < 0.12) {
+                spawnPulse(false);
+            }
+
+            // 1. Draw Floating Telemetry Badges
+            meshLabels.forEach(lbl => {
+                lbl.x += lbl.vx;
+                lbl.y += lbl.vy;
+                if (lbl.x < -200) lbl.x = w + 100;
+                if (lbl.x > w + 200) lbl.x = -100;
+                if (lbl.y < 40) lbl.y = h - 60;
+                if (lbl.y > h - 40) lbl.y = 60;
+
+                canvasCtx.save();
+                canvasCtx.font = '10px "JetBrains Mono", monospace';
+                const textWidth = canvasCtx.measureText(lbl.text).width;
+                const padX = 8;
+                const padY = 4;
+                const boxW = textWidth + padX * 2;
+                const boxH = 18;
+
+                // Pill background
+                canvasCtx.fillStyle = 'rgba(10, 15, 29, 0.45)';
+                canvasCtx.beginPath();
+                canvasCtx.roundRect(lbl.x - padX, lbl.y - 11, boxW, boxH, 6);
+                canvasCtx.fill();
+
+                // Subtle border
+                canvasCtx.strokeStyle = `rgba(148, 163, 184, ${lbl.alpha * 0.35})`;
+                canvasCtx.lineWidth = 0.8;
+                canvasCtx.stroke();
+
+                // Text
+                canvasCtx.fillStyle = lbl.color;
+                canvasCtx.globalAlpha = lbl.alpha;
+                canvasCtx.fillText(lbl.text, lbl.x, lbl.y);
+                canvasCtx.restore();
+            });
+
+            // 2. Update & Draw Edges Between Nearby Nodes
+            for (let i = 0; i < meshNodes.length; i++) {
+                const a = meshNodes[i];
+                for (let j = i + 1; j < meshNodes.length; j++) {
+                    const b = meshNodes[j];
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    const dist = Math.hypot(dx, dy);
+                    const maxDist = 155;
+
+                    if (dist < maxDist) {
+                        const alpha = (1 - dist / maxDist) * 0.25;
+                        canvasCtx.save();
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(a.x, a.y);
+                        canvasCtx.lineTo(b.x, b.y);
+
+                        if (a.type === 'ADVICE' || b.type === 'ADVICE') {
+                            canvasCtx.strokeStyle = `rgba(139, 92, 246, ${alpha * 1.5})`;
+                        } else if (a.type === 'LLM' || b.type === 'LLM') {
+                            canvasCtx.strokeStyle = `rgba(236, 72, 153, ${alpha * 1.5})`;
+                        } else if (a.type === 'CACHE' || b.type === 'CACHE') {
+                            canvasCtx.strokeStyle = `rgba(16, 185, 129, ${alpha * 1.5})`;
+                        } else {
+                            canvasCtx.strokeStyle = `rgba(6, 182, 212, ${alpha})`;
+                        }
+                        canvasCtx.lineWidth = 1;
+                        canvasCtx.stroke();
+                        canvasCtx.restore();
+                    }
+                }
+            }
+
+            // 3. Mouse Hover Connection Rays & Repulsion Physics
+            if (mouseX !== null && mouseY !== null) {
+                meshNodes.forEach(node => {
+                    const dx = node.x - mouseX;
+                    const dy = node.y - mouseY;
+                    const dist = Math.hypot(dx, dy);
+                    const mouseRadius = 140;
+
+                    if (dist < mouseRadius && dist > 0) {
+                        // Gentle Repulsion
+                        const force = (mouseRadius - dist) / mouseRadius;
+                        node.x += (dx / dist) * force * 2.2;
+                        node.y += (dy / dist) * force * 2.2;
+
+                        // Interactive Glowing Ray
+                        canvasCtx.save();
+                        canvasCtx.beginPath();
+                        canvasCtx.moveTo(mouseX, mouseY);
+                        canvasCtx.lineTo(node.x, node.y);
+                        canvasCtx.strokeStyle = `rgba(6, 182, 212, ${(1 - dist / mouseRadius) * 0.45})`;
+                        canvasCtx.lineWidth = 1.2;
+                        canvasCtx.shadowColor = '#06b6d4';
+                        canvasCtx.shadowBlur = 6;
+                        canvasCtx.stroke();
+                        canvasCtx.restore();
+                    }
+                });
+            }
+
+            // 4. Update & Draw Pulses (Self-Healing Interception Pipeline)
+            for (let i = meshPulses.length - 1; i >= 0; i--) {
+                const p = meshPulses[i];
+                p.progress += p.speed;
+
+                const currX = p.from.x + (p.to.x - p.from.x) * p.progress;
+                const currY = p.from.y + (p.to.y - p.from.y) * p.progress;
+
+                // Anomaly interception detection:
+                // When an anomaly pulse reaches halfway or approaches an ADVICE/LLM/CACHE node
+                if (p.status === 'FAULT' && (p.progress >= 0.45 || p.to.type === 'ADVICE' || p.to.type === 'LLM' || p.to.type === 'CACHE')) {
+                    p.status = 'HEALED';
+                    p.color = '#10b981'; // Morph to Emerald Healed
+                    p.to.interceptFlash = 1.0; // Flash the intercepting advice node
+
+                    // Trigger mini healing burst particles
+                    for (let k = 0; k < 4; k++) {
+                        meshRipples.push({
+                            x: currX,
+                            y: currY,
+                            radius: 2,
+                            maxRadius: 28,
+                            speed: 2,
+                            alpha: 0.7,
+                            color: '#10b981'
+                        });
+                    }
+                }
+
+                // Render Pulse Packet
+                canvasCtx.save();
+                canvasCtx.beginPath();
+                canvasCtx.arc(currX, currY, p.size, 0, Math.PI * 2);
+                canvasCtx.fillStyle = p.color;
+                canvasCtx.shadowColor = p.color;
+                canvasCtx.shadowBlur = p.status === 'FAULT' ? 14 : 10;
+                canvasCtx.fill();
+
+                // Secondary glow core
+                canvasCtx.beginPath();
+                canvasCtx.arc(currX, currY, p.size * 0.5, 0, Math.PI * 2);
+                canvasCtx.fillStyle = '#ffffff';
+                canvasCtx.fill();
+                canvasCtx.restore();
+
+                if (p.progress >= 1) {
+                    meshPulses.splice(i, 1);
+                }
+            }
+
+            // 5. Update & Draw Radial Healing Shockwaves
+            for (let i = meshRipples.length - 1; i >= 0; i--) {
+                const rip = meshRipples[i];
+                rip.radius += rip.speed;
+                rip.alpha *= 0.94;
+
+                canvasCtx.save();
+                canvasCtx.beginPath();
+                canvasCtx.arc(rip.x, rip.y, rip.radius, 0, Math.PI * 2);
+                canvasCtx.strokeStyle = rip.color;
+                canvasCtx.globalAlpha = Math.max(0, rip.alpha);
+                canvasCtx.lineWidth = 1.5;
+                canvasCtx.shadowColor = rip.color;
+                canvasCtx.shadowBlur = 8;
+                canvasCtx.stroke();
+                canvasCtx.restore();
+
+                if (rip.alpha < 0.04 || rip.radius > rip.maxRadius) {
+                    meshRipples.splice(i, 1);
+                }
+            }
+
+            // 6. Update & Draw Nodes
+            meshNodes.forEach(node => {
+                // Drift position
+                node.x += node.vx;
+                node.y += node.vy;
+                if (node.x < 10) { node.x = 10; node.vx *= -1; }
+                if (node.x > w - 10) { node.x = w - 10; node.vx *= -1; }
+                if (node.y < 10) { node.y = 10; node.vy *= -1; }
+                if (node.y > h - 10) { node.y = h - 10; node.vy *= -1; }
+
+                // Dynamic pulse
+                node.pulsePhase += 0.035;
+                const pulseScale = 1 + Math.sin(node.pulsePhase) * 0.15;
+                let currentRadius = node.baseRadius * pulseScale;
+
+                // Intercept flash animation decay
+                if (node.interceptFlash > 0) {
+                    currentRadius += node.interceptFlash * 5;
+                    node.interceptFlash -= 0.05;
+                }
+
+                canvasCtx.save();
+                // Outer glow aura
+                canvasCtx.beginPath();
+                canvasCtx.arc(node.x, node.y, currentRadius * 1.8, 0, Math.PI * 2);
+                canvasCtx.fillStyle = node.glow;
+                canvasCtx.globalAlpha = 0.25 + (node.interceptFlash * 0.5);
+                canvasCtx.fill();
+
+                // Inner core
+                canvasCtx.beginPath();
+                canvasCtx.arc(node.x, node.y, currentRadius, 0, Math.PI * 2);
+                canvasCtx.fillStyle = node.color;
+                canvasCtx.globalAlpha = 0.9;
+                canvasCtx.shadowColor = node.color;
+                canvasCtx.shadowBlur = node.interceptFlash > 0 ? 18 : 8;
+                canvasCtx.fill();
+
+                // Small micro-label on key nodes
+                if (node.type !== 'JVM' || node.label.includes('Service')) {
+                    canvasCtx.font = '8px "JetBrains Mono", monospace';
+                    canvasCtx.fillStyle = 'rgba(203, 213, 225, 0.6)';
+                    canvasCtx.globalAlpha = 0.6;
+                    canvasCtx.fillText(node.label, node.x + 8, node.y + 3);
+                }
+                canvasCtx.restore();
+            });
+
+            canvasAnimId = requestAnimationFrame(animateLoginCanvas);
+        }
+
+        // ==========================================
+        // Sidebar Navigation & Tab Switching
+        // ==========================================
+        const tabTitles = {
+            'overview': 'Dashboard Overview',
+            'fault-injector': 'Runtime Fault Injector & Console',
+            'incidents': 'Intercepted Incidents Telemetry',
+            'audit': 'Self-Healing Audit Trail',
+            'policy': 'Safety & Policy Guardrails',
+            'analytics': 'Recovery Analytics & Metrics'
+        };
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+
+            // Hide all panes
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('hidden'));
+
+            // Show selected pane
+            const activePane = document.getElementById(`tab-${tabId}`);
+            if (activePane) activePane.classList.remove('hidden');
+
+            // Update Breadcrumb
+            const bc = document.getElementById('breadcrumbCurrent');
+            if (bc) bc.innerText = tabTitles[tabId] || 'Dashboard';
+
+            // Update Navigation Buttons Active State
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.className = 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-slate-400 hover:text-white hover:bg-slate-900';
+            });
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.className = 'nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium transition text-white bg-cyan-500/15 border border-cyan-500/30';
+            }
+
+            // Re-render chart if analytics tab
+            if (tabId === 'analytics' || tabId === 'overview') {
+                setTimeout(() => {
+                    if (outcomeChart) outcomeChart.resize();
+                }, 100);
+            }
+
+            initIcons();
+        }
+
+        // ==========================================
+        // Chart.js Visualization
+        // ==========================================
+        function initChart() {
+            if (outcomeChart) return;
+            const canvas = document.getElementById('chartOutcomes');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            outcomeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Successful Heals', 'Policy Blocked', 'Circuit Breaker', 'Low Confidence'],
+                    datasets: [{
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#10B981', '#F59E0B', '#F43F5E', '#8B5CF6'],
+                        borderWidth: 0,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94A3B8', font: { size: 10, family: 'sans-serif' }, boxWidth: 12 }
+                        }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // ==========================================
+        // Live Telemetry Polling & Fetching
+        // ==========================================
+        async function refreshAllData() {
+            await Promise.allSettled([
+                fetchAgentHealth(),
+                fetchOllamaHealth(),
+                fetchSummary(),
+                fetchIncidents(),
+                fetchActions(),
+                fetchPolicy()
+            ]);
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            autoRefreshInterval = setInterval(refreshAllData, 3000);
+        }
+
+        function toggleAutoRefresh() {
+            isAutoRefresh = !isAutoRefresh;
+            const btn = document.getElementById('textAutoRefresh');
+            if (isAutoRefresh) {
+                btn.innerText = 'Auto (3s)';
+                startAutoRefresh();
+            } else {
+                btn.innerText = 'Paused';
+                if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            }
+        }
+
+        // Fetch Agent Status
+        async function fetchAgentHealth() {
+            try {
+                const res = await fetch('/api/agent/status');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                document.getElementById('textAgent').innerText = `${data.status} (${data.attachMode})`;
+                document.getElementById('dotAgent').className = data.status === 'ACTIVE' ? 'w-2 h-2 rounded-full bg-emerald-400 pulse-dot' : 'w-2 h-2 rounded-full bg-rose-400';
+                const sb = document.getElementById('sidebarAgentStatus');
+                if (sb) sb.innerText = data.status;
+
+                // Also query /api/health for live JVM heap metrics
+                try {
+                    const hRes = await fetch('/api/health');
+                    if (hRes.ok) {
+                        const hData = await hRes.json();
+                        const elHeap = document.getElementById('analyticsCircuitBreaker');
+                        if (elHeap && hData.heapMaxMB) {
+                            elHeap.innerText = `${hData.heapUsedMB} / ${hData.heapMaxMB} MB`;
+                        }
+                    }
+                } catch (he) {}
+            } catch (e) {
+                document.getElementById('textAgent').innerText = 'OFFLINE';
+                document.getElementById('dotAgent').className = 'w-2 h-2 rounded-full bg-rose-400';
+                const sb = document.getElementById('sidebarAgentStatus');
+                if (sb) sb.innerText = 'OFFLINE';
+            }
+        }
+
+        // Fetch Ollama Health
+        async function fetchOllamaHealth() {
+            try {
+                const res = await fetch('/api/diagnostics/health');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                document.getElementById('textOllama').innerText = `${data.status} (${data.model})`;
+                document.getElementById('dotOllama').className = data.status === 'CONNECTED' ? 'w-2 h-2 rounded-full bg-purple-400 pulse-dot' : 'w-2 h-2 rounded-full bg-amber-400';
+                const sb = document.getElementById('sidebarOllamaStatus');
+                if (sb) sb.innerText = data.model || 'qwen2.5:3b';
+            } catch (e) {
+                document.getElementById('textOllama').innerText = 'DISCONNECTED';
+                document.getElementById('dotOllama').className = 'w-2 h-2 rounded-full bg-rose-400';
+            }
+        }
+
+        // Fetch Summary Metrics
+        async function fetchSummary() {
+            try {
+                const res = await fetch('/api/healing/summary');
+                if (!res.ok) return;
+                const data = await res.json();
+                document.getElementById('kpiSuccessfulHeals').innerText = data.successfulHeals || 0;
+                document.getElementById('kpiBlockedPolicy').innerText = data.blockedByPolicy || 0;
+                document.getElementById('kpiBlockedCb').innerText = `${data.blockedByCircuitBreaker || 0} blocked`;
+                document.getElementById('kpiSuccessRate').innerText = `${data.successRatePercentage || 100}%`;
+
+                // Update live Recovery Analytics cards
+                const elUptime = document.getElementById('analyticsUptime');
+                if (elUptime) elUptime.innerText = `${data.successRatePercentage !== undefined ? data.successRatePercentage : 100}%`;
+
+                const elAvgLatency = document.getElementById('analyticsAvgLatency');
+                if (elAvgLatency) elAvgLatency.innerText = `${data.averageLatencyMs || 0} ms`;
+
+                const elCacheRate = document.getElementById('analyticsPolicyEnforcement');
+                if (elCacheRate) elCacheRate.innerText = `${data.cacheHitRatePercentage || 0}% (<5ms Cache)`;
+
+                // Update Chart
+                if (outcomeChart) {
+                    outcomeChart.data.datasets[0].data = [
+                        data.successfulHeals || 0,
+                        data.blockedByPolicy || 0,
+                        data.blockedByCircuitBreaker || 0,
+                        data.skippedLowConfidence || 0
+                    ];
+                    outcomeChart.update();
+                }
+            } catch (e) {}
+        }
+
+        // Fetch Incidents
+        async function fetchIncidents() {
+            try {
+                const res = await fetch('/api/telemetry/incidents');
+                if (!res.ok) return;
+                const incidents = await res.json();
+                cachedIncidents = incidents;
+                document.getElementById('kpiTotalIncidents').innerText = incidents.length;
+                document.getElementById('labelIncidentCount').innerText = `${incidents.length} incidents`;
+
+                // Render Main Incidents Table
+                const tbody = document.getElementById('tbodyIncidents');
+                if (incidents.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-sans">No runtime incidents recorded yet. Trigger a fault from the Fault Injector!</td></tr>';
+                } else {
+                    tbody.innerHTML = incidents.slice(0, 15).map(inc => `
+                        <tr class="hover:bg-slate-900/60 transition">
+                            <td class="p-3.5 text-cyan-400 font-semibold">${inc.incidentId}</td>
+                            <td class="p-3.5 text-rose-400 truncate max-w-[200px]">${cleanClassName(inc.exceptionType)}</td>
+                            <td class="p-3.5 text-slate-200 truncate max-w-[220px]">${inc.methodName}()</td>
+                            <td class="p-3.5 text-slate-400 text-[10px]">${formatTime(inc.timestamp)}</td>
+                            <td class="p-3.5 text-right">
+                                <button onclick="inspectIncident('${inc.incidentId}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-cyan-500/50 transition text-[10px]">
+                                    Inspect 🔍
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Render Overview Incidents Snippet
+                const snippet = document.getElementById('overviewIncidentsSnippet');
+                if (snippet) {
+                    if (incidents.length === 0) {
+                        snippet.innerHTML = '<div class="text-center p-4 text-slate-500">No runtime incidents recorded yet.</div>';
+                    } else {
+                        snippet.innerHTML = incidents.slice(0, 3).map(inc => `
+                            <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-cyan-400 font-mono font-bold">${inc.incidentId}</span>
+                                    <span class="text-slate-300 truncate max-w-[150px] font-mono">${inc.methodName}()</span>
+                                </div>
+                                <span class="text-[10px] text-rose-400 font-mono">${cleanClassName(inc.exceptionType)}</span>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Fetch Healing Actions Audit
+        async function fetchActions() {
+            try {
+                const res = await fetch('/api/healing/actions');
+                if (!res.ok) return;
+                const actions = await res.json();
+                cachedActions = actions;
+                document.getElementById('labelActionCount').innerText = `${actions.length} actions`;
+
+                // Render Main Audit Table
+                const tbody = document.getElementById('tbodyActions');
+                if (actions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500 font-sans">No self-healing actions attempted yet.</td></tr>';
+                } else {
+                    tbody.innerHTML = actions.slice(0, 15).map(act => `
+                        <tr class="hover:bg-slate-900/60 transition">
+                            <td class="p-3.5 text-purple-400 font-semibold">${act.actionId}</td>
+                            <td class="p-3.5 text-slate-200 truncate max-w-[180px]">${act.methodName}()</td>
+                            <td class="p-3.5 font-semibold text-slate-300">${act.strategy}</td>
+                            <td class="p-3.5">${statusBadge(act.status)}</td>
+                            <td class="p-3.5 text-emerald-400 font-mono">${act.fallbackValue !== null && act.fallbackValue !== undefined ? JSON.stringify(act.fallbackValue) : '<span class="text-slate-500">None</span>'}</td>
+                            <td class="p-3.5 text-right text-slate-400 font-mono">${act.executionTimeMs}ms</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Render Overview Actions Snippet
+                const snippet = document.getElementById('overviewActionsSnippet');
+                if (snippet) {
+                    if (actions.length === 0) {
+                        snippet.innerHTML = '<div class="text-center p-4 text-slate-500">No recovery actions recorded yet.</div>';
+                    } else {
+                        snippet.innerHTML = actions.slice(0, 3).map(act => `
+                            <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-purple-400 font-mono font-bold">${act.actionId}</span>
+                                    <span class="text-slate-300 truncate max-w-[150px] font-mono">${act.methodName}()</span>
+                                </div>
+                                <div>${statusBadge(act.status)}</div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Fetch Policy Configuration
+        async function fetchPolicy() {
+            try {
+                const res = await fetch('/api/healing/policy');
+                if (!res.ok) return;
+                const policy = await res.json();
+
+                document.getElementById('toggleHealingEnabled').checked = policy.enabled;
+                document.getElementById('valMinConfidence').innerText = policy.minConfidence;
+                document.getElementById('sliderConfidence').value = policy.minConfidence;
+
+                // Denylist
+                const listDenylist = document.getElementById('listDenylist');
+                listDenylist.innerHTML = (policy.denylist || []).map(method => `
+                    <div class="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 font-mono">
+                        <span class="text-amber-400 font-semibold">${method}()</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase font-bold">Blocked</span>
+                    </div>
+                `).join('');
+
+                // Circuit Breakers
+                const cbList = document.getElementById('listCircuitBreakers');
+                const cbMap = policy.circuitBreakers || {};
+                const keys = Object.keys(cbMap);
+
+                let openCount = 0;
+                if (keys.length === 0) {
+                    cbList.innerHTML = '<div class="text-xs text-slate-500 italic p-2">All method circuit breakers CLOSED (Normal).</div>';
+                } else {
+                    cbList.innerHTML = keys.map(k => {
+                        const cb = cbMap[k];
+                        if (cb.state === 'OPEN') openCount++;
+                        const isClosed = cb.state === 'CLOSED';
+                        return `
+                            <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono">
+                                <span class="truncate max-w-[200px] text-slate-300" title="${k}">${k.split('.').pop()}()</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] ${isClosed ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 font-bold border border-rose-500/40'}">${cb.state} (${cb.recentFailures})</span>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                document.getElementById('kpiCircuitBreakers').innerText = `${openCount} Open`;
+            } catch (e) {}
+        }
+
+        // Update Policy Settings
+        async function updatePolicyConfig() {
+            const enabled = document.getElementById('toggleHealingEnabled').checked;
+            const minConfidence = parseFloat(document.getElementById('sliderConfidence').value);
+            document.getElementById('valMinConfidence').innerText = minConfidence.toFixed(2);
+
+            try {
+                await fetch('/api/healing/policy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled, minConfidence })
+                });
+                showToast(`Policy updated: Self-Healing = ${enabled}, MinConfidence = ${minConfidence}`);
+                logTerminal(`[POLICY] Config updated: Master Switch=${enabled}, MinConfidence=${minConfidence}`);
+            } catch (e) {
+                showToast('Failed to update policy: ' + e.message, true);
+            }
+        }
+
+        // Reset Circuit Breakers
+        async function resetCircuitBreakers() {
+            try {
+                await fetch('/api/healing/circuit-breaker/reset', { method: 'POST' });
+                showToast('Circuit breakers reset to CLOSED state successfully.');
+                logTerminal('[CIRCUIT-BREAKER] Manual reset executed: all method breakers set to CLOSED.');
+                fetchPolicy();
+            } catch (e) {
+                showToast('Reset failed: ' + e.message, true);
+            }
+        }
+
+        // Dynamic External JVM Agent Attachment
+        async function attachExternalPid() {
+            const pidInput = document.getElementById('inputTargetPid');
+            const pid = pidInput ? pidInput.value.trim() : '';
+            if (!pid) {
+                showToast('Please enter a target Java Process ID (PID)', true);
+                return;
+            }
+
+            logTerminal(`[ATTACH] Initiating ByteBuddy Agent dynamic attach to external PID: ${pid}...`);
+            showToast(`Attaching agent to PID ${pid}...`);
+
+            try {
+                const res = await fetch(`/api/agent/attach/${pid}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                if (data.status === 'ATTACHED') {
+                    showToast(`Agent attached to PID ${pid} successfully!`);
+                    logTerminal(`[ATTACH-SUCCESS] ${data.message} | Agent JAR: ${data.agentJar || 'loaded'}`);
+                } else {
+                    showToast(`Attachment failed: ${data.message}`, true);
+                    logTerminal(`[ATTACH-ERROR] Failed to attach to PID ${pid}: ${data.message}`);
+                }
+                fetchAgentHealth();
+            } catch (e) {
+                showToast(`Attachment request failed: ${e.message}`, true);
+                logTerminal(`[ATTACH-ERROR] ${e.message}`);
+            }
+        }
+
+        // ==========================================
+        // Interactive Fault Injection
+        // ==========================================
+        async function triggerFault(type) {
+            showToast(`Injecting fault: ${type}...`);
+            logTerminal(`[FAULT] >>> Triggering test scenario: ${type.toUpperCase()}`);
+
+            try {
+                let res;
+                let endpoint = '';
+                if (type === 'arithmetic') {
+                    endpoint = '/api/sample/arithmetic?total=100&divisor=0';
+                    res = await fetch(endpoint);
+                } else if (type === 'npe') {
+                    endpoint = '/api/sample/npe?accountId=UNKNOWN-999';
+                    res = await fetch(endpoint);
+                } else if (type === 'illegal-argument') {
+                    endpoint = '/api/sample/illegal-argument';
+                    res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accountId: 'ACC-100', amount: -50.00, currency: 'USD' })
+                    });
+                } else if (type === 'timeout') {
+                    endpoint = '/api/sample/timeout?simulateSlow=true&delayMillis=3000';
+                    res = await fetch(endpoint);
+                }
+
+                const json = await res.json();
+                if (res.ok) {
+                    showToast(`Fault ${type} triggered -> Status: ${res.status} OK (Successfully Healed by Agent!)`);
+                    logTerminal(`[HEALED] HTTP ${res.status} OK received! Response: ${JSON.stringify(json)}`);
+                    logTerminal(`[HEALED] ByteBuddy bytecode advice suppressed exception and injected type-safe fallback.`);
+                } else {
+                    showToast(`Fault ${type} triggered -> Status: ${res.status} (${json.error || 'Expected policy/guardrail outcome'})`);
+                    logTerminal(`[GUARDRAIL] HTTP ${res.status} preserved: ${json.error || 'Operation blocked by safety policy'}`);
+                }
+                setTimeout(refreshAllData, 1000);
+            } catch (e) {
+                showToast(`Fault invocation completed: ${e.message}`);
+                logTerminal(`[EXCEPTION] ${e.message}`);
+                setTimeout(refreshAllData, 1000);
+            }
+        }
+
+        function logTerminal(msg) {
+            const term = document.getElementById('terminalConsole');
+            if (!term) return;
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            if (msg.includes('[HEALED]')) {
+                div.className = 'text-emerald-400';
+            } else if (msg.includes('[GUARDRAIL]')) {
+                div.className = 'text-amber-400';
+            } else if (msg.includes('[FAULT]')) {
+                div.className = 'text-cyan-400 font-semibold';
+            } else if (msg.includes('[EXCEPTION]')) {
+                div.className = 'text-rose-400';
+            } else {
+                div.className = 'text-slate-400';
+            }
+            div.innerText = `[${time}] ${msg}`;
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function clearTerminal() {
+            const term = document.getElementById('terminalConsole');
+            if (term) term.innerHTML = '<div class="text-slate-500 font-mono">[CONSOLE CLEARED] Ready for next fault event.</div>';
+        }
+
+        // ==========================================
+        // Modal Inspector
+        // ==========================================
+        async function inspectIncident(incidentId) {
+            const inc = cachedIncidents.find(i => i.incidentId === incidentId);
+            if (!inc) return;
+
+            document.getElementById('modalIncidentId').innerText = inc.incidentId;
+            document.getElementById('modalTimestamp').innerText = new Date(inc.timestamp).toLocaleString();
+            document.getElementById('modalExceptionType').innerText = inc.exceptionType;
+            document.getElementById('modalMethod').innerText = `${inc.className}.${inc.methodName}()`;
+            document.getElementById('modalMessage').innerText = inc.exceptionMessage || '(No detail message)';
+            document.getElementById('modalStackTrace').innerText = inc.stackTrace || '(No stack trace available)';
+
+            try {
+                let diag = cachedDiagnostics[incidentId];
+                if (!diag) {
+                    const res = await fetch(`/api/diagnostics/${incidentId}`);
+                    if (res.ok) {
+                        diag = await res.json();
+                        cachedDiagnostics[incidentId] = diag;
+                    }
+                }
+
+                if (diag) {
+                    document.getElementById('boxDiagnostic').classList.remove('hidden');
+                    document.getElementById('modalConfidence').innerText = `Confidence: ${(diag.confidenceScore * 100).toFixed(0)}%`;
+                    document.getElementById('modalRootCause').innerText = diag.rootCause || 'N/A';
+                    document.getElementById('modalExplanation').innerText = diag.explanation || 'N/A';
+                    document.getElementById('modalStrategy').innerText = diag.suggestedRecoveryStrategy || 'NO_ACTION';
+                } else {
+                    document.getElementById('boxDiagnostic').classList.add('hidden');
+                }
+            } catch (e) {
+                document.getElementById('boxDiagnostic').classList.add('hidden');
+            }
+
+            document.getElementById('modalIncident').classList.remove('hidden');
+            initIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('modalIncident').classList.add('hidden');
+        }
+
+        // ==========================================
+        // UI Helpers
+        // ==========================================
+        function statusBadge(status) {
+            switch (status) {
+                case 'SUCCESS':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold font-mono">SUCCESS</span>';
+                case 'BLOCKED_POLICY':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold font-mono">BLOCKED_POLICY</span>';
+                case 'BLOCKED_CIRCUIT_BREAKER':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold font-mono">BLOCKED_CB</span>';
+                case 'SKIPPED_LOW_CONFIDENCE':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold font-mono">LOW_CONFIDENCE</span>';
+                case 'DISABLED':
+                    return '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-semibold font-mono">DISABLED</span>';
+                default:
+                    return `<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-semibold font-mono">${status}</span>`;
+            }
+        }
+
+        function cleanClassName(fullName) {
+            if (!fullName) return '';
+            return fullName.split('.').pop();
+        }
+
+        function formatTime(isoStr) {
+            if (!isoStr) return '';
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString();
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toastAction');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastTime = document.getElementById('toastTimestamp');
+            if (!toast || !toastMsg || !toastTime) return;
+            toastMsg.innerText = msg;
+            toastTime.innerText = new Date().toLocaleTimeString();
+            toast.className = `fixed bottom-6 right-6 z-50 p-3 rounded-xl text-xs max-w-sm flex items-center justify-between gap-3 shadow-2xl transition border ${isError ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-slate-900 text-slate-200 border-slate-700'}`;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# Test configuration isolating test execution from live external services
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+runtimeheal:
+  security:
+    enabled: false
+  ollama:
+    enabled: false
+  healing:
+    enabled: true
+    min-confidence: 0.70
+    max-retries: 3
+    retry-backoff-ms: 10
+    circuit-breaker:
+      failure-threshold: 5
+      window-seconds: 60
+    denylist:
+      - "validateAndProcessTransfer"
+      - "executeGatewayCall"

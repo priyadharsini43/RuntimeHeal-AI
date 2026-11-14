@@ -1,0 +1,63 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: RuntimeHeal-AI-Backend
+  datasource:
+    url: jdbc:h2:file:./data/runtimeheal_db;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  h2:
+    console:
+      enabled: false
+
+# Spring Boot Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.runtimeheal: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# RuntimeHeal AI - Local Ollama LLM Configuration
+runtimeheal:
+  security:
+    enabled: true
+    admin-user: admin
+    admin-pass: admin
+  ollama:
+    base-url: http://localhost:11434
+    model: qwen2.5:3b
+    timeout-seconds: 120
+    temperature: 0.1
+    enabled: true
+  healing:
+    enabled: true
+    min-confidence: 0.70
+    max-retries: 3
+    retry-backoff-ms: 100
+    circuit-breaker:
+      failure-threshold: 5
+      window-seconds: 60
+    denylist:
+      - "validateAndProcessTransfer"
+      - "executeGatewayCall"
