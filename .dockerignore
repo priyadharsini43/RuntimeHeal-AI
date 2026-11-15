@@ -1,0 +1,14 @@
+.git
+.gitignore
+.vscode
+.env
+.env.*
+!.env.example
+cookies.txt
+session.txt
+verify_cookies.txt
+data
+logs
+target
+**/target
+*.zip

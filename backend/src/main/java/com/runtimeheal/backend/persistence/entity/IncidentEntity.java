@@ -30,7 +30,6 @@ public class IncidentEntity {
     @Column(name = "exception_message", length = 2048)
     private String exceptionMessage;
 
-    @Lob
     @Column(name = "stack_trace", columnDefinition = "TEXT")
     private String stackTrace;
 

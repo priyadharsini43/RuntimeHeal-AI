@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: runtimeheal
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: RUNTIMEHEAL_AI_PROVIDER
+        value: groq
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: SOC_OPERATOR_ID
+        sync: false
+      - key: SOC_OPERATOR_PASSCODE
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: RUNTIMEHEAL_GROQ_MODEL
+        sync: false
+      - key: RUNTIMEHEAL_GROQ_FREE_ONLY
+        sync: false

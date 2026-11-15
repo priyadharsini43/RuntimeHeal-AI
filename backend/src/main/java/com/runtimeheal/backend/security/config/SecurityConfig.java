@@ -35,11 +35,11 @@ public class SecurityConfig {
     @Value("${runtimeheal.security.enabled:true}")
     private boolean securityEnabled;
 
-    @Value("${runtimeheal.security.admin-user:admin}")
-    private String adminUser;
+    @Value("${soc.operator.id}")
+    private String operatorId;
 
-    @Value("${runtimeheal.security.admin-pass:admin}")
-    private String adminPass;
+    @Value("${soc.operator.passcode}")
+    private String operatorPasscode;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -49,8 +49,8 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
         UserDetails admin = User.builder()
-                .username(adminUser)
-                .password(passwordEncoder.encode(adminPass))
+                .username(operatorId)
+                .password(passwordEncoder.encode(operatorPasscode))
                 .roles("ADMIN", "OPERATOR")
                 .build();
         return new InMemoryUserDetailsManager(admin);

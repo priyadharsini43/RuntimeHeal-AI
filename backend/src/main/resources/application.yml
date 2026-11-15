@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
@@ -17,6 +17,11 @@ spring:
   h2:
     console:
       enabled: false
+
+soc:
+  operator:
+    id: ${SOC_OPERATOR_ID:${RUNTIMEHEAL_ADMIN_USER:admin}}
+    passcode: ${SOC_OPERATOR_PASSCODE:${RUNTIMEHEAL_ADMIN_PASSWORD:admin}}
 
 # Spring Boot Actuator Configuration
 management:
@@ -38,12 +43,18 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
-# RuntimeHeal AI - Local Ollama LLM Configuration
+# RuntimeHeal AI provider configuration
 runtimeheal:
+  ai:
+    provider: ${RUNTIMEHEAL_AI_PROVIDER:ollama}
   security:
     enabled: true
-    admin-user: admin
-    admin-pass: admin
+  groq:
+    api-key: ${GROQ_API_KEY:}
+    model: ${RUNTIMEHEAL_GROQ_MODEL:}
+    base-url: https://api.groq.com/openai/v1
+    timeout-seconds: 30
+    temperature: 0.1
   ollama:
     base-url: http://localhost:11434
     model: qwen2.5:3b

@@ -49,8 +49,68 @@ RuntimeSelfHealing/
 
 - **Java**: JDK 17 LTS or JDK 21
 - **Maven**: Apache Maven 3.9+
-- **Local LLM**: Ollama (for Phase 6+)
+- **Local AI provider (optional)**: Ollama with `qwen2.5:3b`
+- **Cloud AI provider (optional)**: A Groq API key and a model available on its no-cost allowance
 - **Node.js**: v18+ (for Phase 8 React frontend)
+
+## Free Cloud Deployment
+
+The deployment files target a $0-only stack. They do not create resources or contain credentials:
+
+```text
+Browser -- HTTPS *.onrender.com --> Render Free Docker web service
+                                     Spring Boot 3.3.5 / Java 17
+                                     embedded dashboard + REST API
+                                     -javaagent: RuntimeHeal ByteBuddy
+                                     |                  |
+                                     |                  +--> Groq free API allowance (optional)
+                                     +--> Neon Free PostgreSQL
+
+Local development can continue to use file-based H2 and Ollama/Qwen.
+```
+
+| Component | Selected tier | Cost target |
+|---|---|---:|
+| Render web service and its `onrender.com` HTTPS URL | Free | $0 |
+| Neon PostgreSQL | Free | $0 |
+| Groq API | No-cost allowance only; never enable paid billing | $0 |
+| GitHub source repository and Render auto-deploy integration | Free | $0 |
+| Custom domain, paid instance, paid database, and paid AI usage | Not used | $0 |
+
+These are free-plan deployments, not an uptime guarantee. Render Free services can sleep and cold-start, Neon can suspend compute at plan limits, and Groq can reject requests at its rate limits. The container has no persistent disk; durable incidents, diagnoses, and healing audits use Neon. The in-memory caches and circuit-breaker state reset when Render restarts. If a provider is unconfigured or unavailable, the dashboard/API labels heuristic reports explicitly and shows the provider status; the app does not claim that a cloud AI call succeeded.
+
+The Render instance is limited to 512 MB RAM. The Docker image caps Java heap at 192 MB, limits metaspace, uses Serial GC, and constrains server/database pools. ByteBuddy is attached at JVM startup by the Docker entrypoint; it is not silently replaced by dynamic attachment.
+
+Free-tier terms and quotas can change. Verify the selected plan and $0 estimate on the [Render pricing page](https://render.com/pricing) and [free-service documentation](https://render.com/docs/free), [Neon pricing](https://neon.tech/pricing), [Groq model pricing](https://console.groq.com/docs/models) and [rate limits](https://console.groq.com/docs/rate-limits), and [GitHub plans](https://github.com/pricing) before creating anything. Some Groq models are explicitly token-priced. The `RUNTIMEHEAL_GROQ_FREE_ONLY` switch is a fail-closed configuration guard, not proof of account billing settings; if the console does not clearly show $0 for the chosen model and account, do not enable the switch or provide the key.
+
+### Set up without payment or billing
+
+1. Keep Render, Neon, GitHub, and Groq on their free plans. Do not add a payment method, enable billing, upgrade a plan, or configure a paid fallback. If any free allowance is unavailable, stop rather than accept a charge.
+2. Push the `free-cloud-deploy` branch to a GitHub repository and connect that repository to Render. The included [`render.yaml`](./render.yaml) selects the Free plan, Dockerfile, HTTPS health check, and deploy-on-commit behavior.
+3. In Neon, create a Free PostgreSQL project and copy its JDBC connection URL and credentials into the Render Blueprint prompts for `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`. Keep the connection URL's TLS option enabled.
+4. In Groq, use a model only if the account explicitly shows it is available under the no-cost allowance and billing is disabled. Set `GROQ_API_KEY`, `RUNTIMEHEAL_GROQ_MODEL`, and `RUNTIMEHEAL_GROQ_FREE_ONLY=true` in Render's environment settings. The Groq client refuses to send requests unless that flag is explicitly true. Do not add billing; if no model is available for $0, leave Groq unconfigured and use local Ollama for local AI diagnosis.
+5. Set a unique `SOC_OPERATOR_ID` and strong `SOC_OPERATOR_PASSCODE` in Render's secret environment settings. Do not put credentials in Git. Existing deployments can continue using `RUNTIMEHEAL_ADMIN_USER` and `RUNTIMEHEAL_ADMIN_PASSWORD`; these are supported as legacy fallbacks.
+6. Import the Blueprint and verify the cost estimate is $0 before confirming. Render's generated `https://<service-name>.onrender.com` link is the single public URL. It does not exist until the owner connects accounts and creates the free service.
+
+The public cloud instance cannot reach Ollama running on a laptop that is switched off. Ollama/Qwen remains available for local deployments; the cloud instance uses Groq only when its no-cost model and key are configured. No cloud resources have been created by preparing these files.
+
+### Build the Docker image locally
+
+From the project root:
+
+```powershell
+docker build -t runtimeheal:local .
+docker run --rm -p 8080:8080 `
+  -e SPRING_PROFILES_ACTIVE=production `
+  -e SPRING_DATASOURCE_URL="<Neon JDBC URL>" `
+  -e SPRING_DATASOURCE_USERNAME="<Neon username>" `
+  -e SPRING_DATASOURCE_PASSWORD="<Neon password>" `
+  -e SOC_OPERATOR_ID="<operator username>" `
+  -e SOC_OPERATOR_PASSCODE="<operator passcode>" `
+  runtimeheal:local
+```
+
+Add `GROQ_API_KEY` and `RUNTIMEHEAL_GROQ_MODEL` only when using a verified $0 Groq model. Local costs depend on the machine and are not cloud charges.
 
 ---
 
@@ -230,10 +290,10 @@ The self-healing execution engine connects ByteBuddy runtime exception intercept
 RuntimeHeal AI includes an embedded, zero-dependency, dark-themed observability dashboard served directly from the Spring Boot application on port 8080:
 
 ### Dashboard Features (`http://localhost:8080/`)
-- **System Telemetry Banner**: Displays real-time Java Agent health (`ACTIVE (PREMAIN)`), local Ollama LLM connectivity (`CONNECTED (qwen2.5:3b)`), and master healing toggle.
+- **System Telemetry Banner**: Displays real-time Java Agent health (`ACTIVE (PREMAIN)`), the configured AI provider/model and its connection state, and the master healing toggle.
 - **KPI Metrics Cards**: Total intercepted incidents, successful autonomous heals, recovery rate (%), blocked by policy, and circuit breaker status.
 - **Interactive Fault Injector**: One-click execution of controlled runtime exceptions (`ArithmeticException`, `NullPointerException`, `IllegalArgumentException`, `SimulatedTimeoutException`).
-- **Telemetry Stream & LLM Diagnostics**: Live table of intercepted incidents. Clicking any incident opens a modal displaying root-cause analysis, explanation, LLM confidence score, and stack trace.
+- **Telemetry Stream & LLM Diagnostics**: Live table of intercepted incidents. Clicking any incident opens a modal displaying root-cause analysis, explanation, confidence, the actual diagnosis source (including heuristic fallback), and stack trace.
 - **Dynamic Policy Manager**: Interactive slider to adjust minimum LLM confidence thresholds, toggle master healing, view transactional denylists, and reset method circuit breakers.
 
 ### Quick Start & Demonstration

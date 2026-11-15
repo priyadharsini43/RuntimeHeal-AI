@@ -33,13 +33,14 @@ class DiagnosticControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("GET /api/diagnostics/health should return Ollama status and model configuration")
+    @DisplayName("GET /api/diagnostics/health should return active provider status and model configuration")
     void testGetHealth() throws Exception {
         mockMvc.perform(get("/api/diagnostics/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.service", is("Local Ollama LLM")))
+                .andExpect(jsonPath("$.provider", is("ollama")))
+                .andExpect(jsonPath("$.service", is("Local Ollama")))
                 .andExpect(jsonPath("$.model", is("qwen2.5:3b")))
-                .andExpect(jsonPath("$.status", anyOf(is("CONNECTED"), is("UNREACHABLE"))));
+                .andExpect(jsonPath("$.status", anyOf(is("CONNECTED"), is("UNREACHABLE"), is("NOT_CONFIGURED"))));
     }
 
     @Test

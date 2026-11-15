@@ -1,0 +1,68 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  tomcat:
+    threads:
+      max: 24
+      min-spare: 2
+    max-connections: 200
+    accept-count: 50
+  servlet:
+    session:
+      cookie:
+        secure: true
+        same-site: lax
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      idle-timeout: 30000
+      max-lifetime: 300000
+      connection-timeout: 10000
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.runtimeheal: INFO
+
+runtimeheal:
+  security:
+    enabled: true
+  ai:
+    provider: ${RUNTIMEHEAL_AI_PROVIDER:groq}
+  groq:
+    api-key: ${GROQ_API_KEY:}
+    model: ${RUNTIMEHEAL_GROQ_MODEL:}
+    free-only: ${RUNTIMEHEAL_GROQ_FREE_ONLY:false}
+    base-url: https://api.groq.com/openai/v1
+    timeout-seconds: 30
+    temperature: 0.1
+  ollama:
+    enabled: ${RUNTIMEHEAL_OLLAMA_ENABLED:false}
+    base-url: ${RUNTIMEHEAL_OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${RUNTIMEHEAL_OLLAMA_MODEL:qwen2.5:3b}
+    timeout-seconds: 120
+    temperature: 0.1

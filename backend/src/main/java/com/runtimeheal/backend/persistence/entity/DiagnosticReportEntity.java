@@ -20,7 +20,6 @@ public class DiagnosticReportEntity {
     @Column(name = "root_cause", length = 1024)
     private String rootCause;
 
-    @Lob
     @Column(name = "explanation", columnDefinition = "TEXT")
     private String explanation;
 
@@ -42,7 +41,6 @@ public class DiagnosticReportEntity {
     @Column(name = "latency_millis")
     private long latencyMillis;
 
-    @Lob
     @Column(name = "raw_model_response", columnDefinition = "TEXT")
     private String rawModelResponse;
 

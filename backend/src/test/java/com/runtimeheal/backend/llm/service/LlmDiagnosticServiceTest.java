@@ -1,12 +1,12 @@
 package com.runtimeheal.backend.llm.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.runtimeheal.backend.llm.client.OllamaClient;
 import com.runtimeheal.backend.llm.model.DiagnosisSeverity;
 import com.runtimeheal.backend.llm.model.LlmDiagnosticReport;
-import com.runtimeheal.backend.llm.model.OllamaGenerateResponse;
 import com.runtimeheal.backend.llm.model.RecoveryStrategy;
 import com.runtimeheal.backend.llm.prompt.DiagnosticPromptBuilder;
+import com.runtimeheal.backend.llm.provider.DiagnosticLlmProvider;
+import com.runtimeheal.backend.llm.provider.LlmProviderResponse;
 import com.runtimeheal.backend.telemetry.dto.AgentTelemetryEvent;
 import com.runtimeheal.backend.telemetry.service.TelemetryStoreService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 
 class LlmDiagnosticServiceTest {
 
-    private OllamaClient ollamaClient;
+    private DiagnosticLlmProvider llmProvider;
     private DiagnosticPromptBuilder promptBuilder;
     private TelemetryStoreService telemetryStore;
     private ObjectMapper objectMapper;
@@ -31,11 +31,14 @@ class LlmDiagnosticServiceTest {
 
     @BeforeEach
     void setUp() {
-        ollamaClient = Mockito.mock(OllamaClient.class);
+        llmProvider = Mockito.mock(DiagnosticLlmProvider.class);
+        when(llmProvider.getProviderId()).thenReturn("ollama");
+        when(llmProvider.getProviderName()).thenReturn("Local Ollama");
+        when(llmProvider.getModel()).thenReturn("qwen2.5:3b");
         promptBuilder = new DiagnosticPromptBuilder();
         telemetryStore = new TelemetryStoreService();
         objectMapper = new ObjectMapper();
-        diagnosticService = new LlmDiagnosticService(ollamaClient, promptBuilder, telemetryStore, objectMapper);
+        diagnosticService = new LlmDiagnosticService(llmProvider, promptBuilder, telemetryStore, objectMapper);
     }
 
     @Test
@@ -54,21 +57,19 @@ class LlmDiagnosticServiceTest {
                 new String[]{"int", "int"}
         );
 
-        when(ollamaClient.isAvailable()).thenReturn(true);
+        when(llmProvider.isAvailable()).thenReturn(true);
 
-        OllamaGenerateResponse mockResponse = new OllamaGenerateResponse();
-        mockResponse.setModel("qwen2.5:3b");
-        mockResponse.setDone(true);
-        mockResponse.setResponse("{\n" +
+        String mockResponse = "{\n" +
                 "  \"rootCause\": \"Division by zero in discount computation\",\n" +
                 "  \"explanation\": \"Divisor parameter was zero causing ArithmeticException\",\n" +
                 "  \"severity\": \"MEDIUM\",\n" +
                 "  \"confidenceScore\": 0.95,\n" +
                 "  \"suggestedRecoveryStrategy\": \"RETURN_FALLBACK\",\n" +
                 "  \"reasonForSuggestion\": \"Safe fallback of zero prevents crash\"\n" +
-                "}");
+                "}";
 
-        when(ollamaClient.generate(anyString(), anyString())).thenReturn(mockResponse);
+        when(llmProvider.generate(anyString(), anyString()))
+                .thenReturn(new LlmProviderResponse("qwen2.5:3b", mockResponse));
 
         LlmDiagnosticReport report = diagnosticService.analyzeEvent(event);
 
@@ -78,7 +79,7 @@ class LlmDiagnosticServiceTest {
         assertEquals(DiagnosisSeverity.MEDIUM, report.getSeverity());
         assertEquals(0.95, report.getConfidenceScore(), 0.001);
         assertEquals(RecoveryStrategy.RETURN_FALLBACK, report.getSuggestedRecoveryStrategy());
-        assertTrue(report.getSource().contains("LOCAL_OLLAMA"));
+        assertTrue(report.getSource().contains("OLLAMA"));
     }
 
     @Test
@@ -97,7 +98,7 @@ class LlmDiagnosticServiceTest {
                 new String[]{"String"}
         );
 
-        when(ollamaClient.isAvailable()).thenReturn(false);
+        when(llmProvider.isAvailable()).thenReturn(false);
 
         LlmDiagnosticReport report = diagnosticService.analyzeEvent(event);
 
@@ -125,8 +126,9 @@ class LlmDiagnosticServiceTest {
                 new String[]{"boolean", "long"}
         );
 
-        when(ollamaClient.isAvailable()).thenReturn(true);
-        when(ollamaClient.generate(anyString(), anyString())).thenThrow(new RuntimeException("Connection timed out after 15000ms"));
+        when(llmProvider.isAvailable()).thenReturn(true);
+        when(llmProvider.generate(anyString(), anyString()))
+                .thenThrow(new RuntimeException("Connection timed out after 15000ms"));
 
         LlmDiagnosticReport report = diagnosticService.analyzeEvent(event);
 
@@ -153,24 +155,49 @@ class LlmDiagnosticServiceTest {
                 new String[0]
         );
 
-        when(ollamaClient.isAvailable()).thenReturn(true);
+        when(llmProvider.isAvailable()).thenReturn(true);
 
-        OllamaGenerateResponse mockResponse = new OllamaGenerateResponse();
-        mockResponse.setResponse("{\n" +
+        String mockResponse = "{\n" +
                 "  \"rootCause\": \"Unknown error\",\n" +
                 "  \"explanation\": \"Something failed\",\n" +
                 "  \"severity\": \"LOW\",\n" +
                 "  \"confidenceScore\": 0.50,\n" +
                 "  \"suggestedRecoveryStrategy\": \"EXECUTE_CUSTOM_SCRIPT\",\n" +
                 "  \"reasonForSuggestion\": \"Unsafe arbitrary instruction\"\n" +
-                "}");
+                "}";
 
-        when(ollamaClient.generate(anyString(), anyString())).thenReturn(mockResponse);
+        when(llmProvider.generate(anyString(), anyString()))
+                .thenReturn(new LlmProviderResponse("qwen2.5:3b", mockResponse));
 
         LlmDiagnosticReport report = diagnosticService.analyzeEvent(event);
 
         // Security rule: Unrecognized strategy MUST default to NO_ACTION
         assertEquals(RecoveryStrategy.NO_ACTION, report.getSuggestedRecoveryStrategy());
+    }
+
+    @Test
+    @DisplayName("Should label malformed provider output as heuristic rather than report it as AI diagnosis")
+    void testMalformedProviderOutputIsExplicitlyLabeled() throws Exception {
+        AgentTelemetryEvent event = new AgentTelemetryEvent(
+                "INC-TEST-MALFORMED",
+                Instant.now(),
+                "OrderService",
+                "process",
+                "()",
+                "java.lang.Exception",
+                "Error",
+                "Exception",
+                "main",
+                new String[0]
+        );
+        when(llmProvider.isAvailable()).thenReturn(true);
+        when(llmProvider.generate(anyString(), anyString()))
+                .thenReturn(new LlmProviderResponse("qwen2.5:3b", "{\"rootCause\":\"partial\"}"));
+
+        LlmDiagnosticReport report = diagnosticService.analyzeEvent(event);
+
+        assertTrue(report.getSource().contains("HEURISTIC_FALLBACK"));
+        assertTrue(report.getRawModelResponse().contains("missing required field"));
     }
 
     @Test

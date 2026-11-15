@@ -9,6 +9,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import com.runtimeheal.backend.persistence.entity.IncidentEntity;
 import com.runtimeheal.backend.persistence.repository.IncidentRepository;
+import org.springframework.data.domain.PageRequest;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,7 +40,7 @@ public class TelemetryStoreService {
     public void init() {
         if (incidentRepository != null) {
             try {
-                List<IncidentEntity> saved = incidentRepository.findAllByOrderByTimestampDesc();
+                List<IncidentEntity> saved = incidentRepository.findAllByOrderByTimestampDesc(PageRequest.of(0, MAX_INCIDENTS));
                 // Add in chronological order to memory
                 List<IncidentEntity> chronological = new ArrayList<>(saved);
                 Collections.reverse(chronological);

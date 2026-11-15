@@ -103,7 +103,7 @@
 
                 <!-- Error Alert Box -->
                 <div id="loginError" class="hidden mt-5 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-                    <span id="loginErrorText">⚠️ Invalid credentials. Use default: <strong>admin</strong> / <strong>admin</strong></span>
+                    <span id="loginErrorText">⚠️ Invalid credentials.</span>
                 </div>
 
                 <!-- Login Form -->
@@ -111,7 +111,7 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1.5">SOC Operator ID</label>
                         <div class="relative">
-                            <input type="text" id="inputUsername" value="admin" required autocomplete="username"
+                            <input type="text" id="inputUsername" placeholder="Enter operator ID" required autocomplete="username"
                                 class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
                         </div>
                     </div>
@@ -119,7 +119,7 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-300 mb-1.5">Security Passcode</label>
                         <div class="relative">
-                            <input type="password" id="inputPassword" value="admin" required autocomplete="current-password"
+                            <input type="password" id="inputPassword" placeholder="Enter security passcode" required autocomplete="current-password"
                                 class="w-full px-4 py-2.5 bg-slate-950/80 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
                         </div>
                     </div>
@@ -137,12 +137,6 @@
                     </div>
                 </form>
 
-                <!-- Footer Credentials Info -->
-                <div class="mt-6 pt-4 border-t border-slate-800 text-center">
-                    <p class="text-[11px] text-slate-500">
-                        Default Demo Access: <code class="text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">admin</code> / <code class="text-cyan-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">admin</code>
-                    </p>
-                </div>
             </div>
         </div>
     </div>
@@ -180,9 +174,9 @@
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
                         <span class="text-slate-400 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> Local LLM
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> AI Provider
                         </span>
-                        <span id="sidebarOllamaStatus" class="font-mono text-purple-300 font-bold">qwen2.5:3b</span>
+                        <span id="sidebarOllamaStatus" class="font-mono text-purple-300 font-bold">Checking...</span>
                     </div>
                 </div>
 
@@ -266,10 +260,10 @@
                         <span class="font-semibold text-slate-200 font-mono" id="textAgent">Checking...</span>
                     </div>
 
-                    <!-- Ollama Badge -->
+                    <!-- Active AI provider badge -->
                     <div id="badgeOllama" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800">
                         <span class="w-2 h-2 rounded-full bg-slate-500 pulse-dot" id="dotOllama"></span>
-                        <span class="text-slate-400">Ollama:</span>
+                        <span class="text-slate-400">AI Provider:</span>
                         <span class="font-semibold text-slate-200 font-mono" id="textOllama">Checking...</span>
                     </div>
 
@@ -388,8 +382,8 @@
                                 <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
                                     <div class="text-[10px] uppercase text-slate-500 font-semibold">Diagnostic Intelligence</div>
                                     <div class="text-slate-200 font-medium flex items-center justify-between">
-                                        <span>Local Ollama Server</span>
-                                        <span class="text-purple-400 font-mono">qwen2.5:3b (Port 11434)</span>
+                                        <span>Configured AI Provider</span>
+                                        <span class="text-purple-400 font-mono" id="aiProviderDetails">Checking...</span>
                                     </div>
                                 </div>
 
@@ -834,12 +828,15 @@
             <div class="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 space-y-2.5" id="boxDiagnostic">
                 <div class="flex justify-between items-center">
                     <span class="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                        <i data-lucide="cpu" class="w-4 h-4"></i> Local Ollama AI Diagnostic Report
+                        <i data-lucide="cpu" class="w-4 h-4"></i> AI Diagnostic Report
                     </span>
                     <span class="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-bold" id="modalConfidence">Confidence: 0.85</span>
                 </div>
                 <div class="text-xs text-slate-200">
                     <span class="text-slate-400 font-semibold">Root Cause:</span> <span id="modalRootCause"></span>
+                </div>
+                <div class="text-xs text-slate-300">
+                    <span class="text-slate-400 font-semibold">Diagnosis source:</span> <span id="modalSource"></span>
                 </div>
                 <div class="text-xs text-slate-300">
                     <span class="text-slate-400 font-semibold">Explanation:</span> <span id="modalExplanation"></span>
@@ -1050,15 +1047,15 @@
             { type: 'JVM', label: 'getfield', color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.7)', radius: 3.5 },
             { type: 'ADVICE', label: '@Advice.OnMethodExit', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.9)', radius: 5.5 },
             { type: 'ADVICE', label: 'BytecodeInterceptor', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.9)', radius: 5 },
-            { type: 'LLM', label: 'qwen2.5:3b', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 6 },
-            { type: 'LLM', label: 'Ollama-Client', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 5.5 },
+            { type: 'LLM', label: 'Configured AI Model', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 6 },
+            { type: 'LLM', label: 'AI Provider Client', color: '#ec4899', glow: 'rgba(236, 72, 153, 0.9)', radius: 5.5 },
             { type: 'CACHE', label: 'StrategyCache', color: '#10b981', glow: 'rgba(16, 185, 129, 0.9)', radius: 5 },
             { type: 'CACHE', label: 'FallbackEngine', color: '#10b981', glow: 'rgba(16, 185, 129, 0.9)', radius: 5 }
         ];
 
         const TELEMETRY_STREAM = [
             { text: '@Advice.OnMethodExit [ByteBuddy 1.14]', color: '#8b5cf6' },
-            { text: 'Local LLM: qwen2.5:3b (Ollama)', color: '#ec4899' },
+            { text: 'Configured AI provider and model', color: '#ec4899' },
             { text: 'CIRCUIT: CLOSED [STABLE]', color: '#10b981' },
             { text: 'MTTR < 5ms (Verified Strategy Cache)', color: '#06b6d4' },
             { text: 'Zero Source Code Modification', color: '#38bdf8' },
@@ -1540,7 +1537,7 @@
         async function refreshAllData() {
             await Promise.allSettled([
                 fetchAgentHealth(),
-                fetchOllamaHealth(),
+                fetchAiProviderHealth(),
                 fetchSummary(),
                 fetchIncidents(),
                 fetchActions(),
@@ -1595,19 +1592,24 @@
             }
         }
 
-        // Fetch Ollama Health
-        async function fetchOllamaHealth() {
+        // Fetch the active AI provider health.
+        async function fetchAiProviderHealth() {
             try {
                 const res = await fetch('/api/diagnostics/health');
                 if (!res.ok) throw new Error();
                 const data = await res.json();
-                document.getElementById('textOllama').innerText = `${data.status} (${data.model})`;
-                document.getElementById('dotOllama').className = data.status === 'CONNECTED' ? 'w-2 h-2 rounded-full bg-purple-400 pulse-dot' : 'w-2 h-2 rounded-full bg-amber-400';
+                const model = data.model || 'model not configured';
+                document.getElementById('textOllama').innerText = `${data.status} (${data.provider}: ${model})`;
+                document.getElementById('dotOllama').className = data.status === 'CONNECTED' ? 'w-2 h-2 rounded-full bg-purple-400 pulse-dot' : 'w-2 h-2 rounded-full bg-rose-400';
                 const sb = document.getElementById('sidebarOllamaStatus');
-                if (sb) sb.innerText = data.model || 'qwen2.5:3b';
+                if (sb) sb.innerText = `${data.provider}: ${model}`;
+                const details = document.getElementById('aiProviderDetails');
+                if (details) details.innerText = `${data.provider}: ${model} (${data.status})`;
             } catch (e) {
-                document.getElementById('textOllama').innerText = 'DISCONNECTED';
+                document.getElementById('textOllama').innerText = 'STATUS UNAVAILABLE';
                 document.getElementById('dotOllama').className = 'w-2 h-2 rounded-full bg-rose-400';
+                const details = document.getElementById('aiProviderDetails');
+                if (details) details.innerText = 'Status unavailable';
             }
         }
 
@@ -1948,6 +1950,8 @@
                     document.getElementById('boxDiagnostic').classList.remove('hidden');
                     document.getElementById('modalConfidence').innerText = `Confidence: ${(diag.confidenceScore * 100).toFixed(0)}%`;
                     document.getElementById('modalRootCause').innerText = diag.rootCause || 'N/A';
+                    document.getElementById('modalSource').innerText = diag.source || 'UNKNOWN';
+                    document.getElementById('modalSource').className = diag.source && diag.source.includes('HEURISTIC_FALLBACK') ? 'text-amber-300 font-mono font-semibold' : 'text-slate-300 font-mono';
                     document.getElementById('modalExplanation').innerText = diag.explanation || 'N/A';
                     document.getElementById('modalStrategy').innerText = diag.suggestedRecoveryStrategy || 'NO_ACTION';
                 } else {

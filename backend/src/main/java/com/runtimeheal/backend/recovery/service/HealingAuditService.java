@@ -2,6 +2,7 @@ package com.runtimeheal.backend.recovery.service;
 
 import com.runtimeheal.backend.persistence.entity.HealingActionEntity;
 import com.runtimeheal.backend.persistence.repository.HealingActionRepository;
+import org.springframework.data.domain.PageRequest;
 import com.runtimeheal.backend.recovery.model.HealingActionRecord;
 import com.runtimeheal.backend.recovery.model.HealingStatus;
 import jakarta.annotation.PostConstruct;
@@ -40,7 +41,7 @@ public class HealingAuditService {
     public void init() {
         if (actionRepository != null) {
             try {
-                List<HealingActionEntity> saved = actionRepository.findAllByOrderByTimestampDesc();
+                List<HealingActionEntity> saved = actionRepository.findAllByOrderByTimestampDesc(PageRequest.of(0, MAX_AUDIT_RECORDS));
                 List<HealingActionEntity> chronological = new ArrayList<>(saved);
                 Collections.reverse(chronological);
                 for (HealingActionEntity entity : chronological) {

@@ -1,7 +1,7 @@
 package com.runtimeheal.backend.llm.controller;
 
-import com.runtimeheal.backend.llm.client.OllamaClient;
 import com.runtimeheal.backend.llm.model.LlmDiagnosticReport;
+import com.runtimeheal.backend.llm.provider.DiagnosticLlmProvider;
 import com.runtimeheal.backend.llm.service.LlmDiagnosticService;
 import com.runtimeheal.backend.telemetry.dto.AgentTelemetryEvent;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +19,11 @@ import java.util.Map;
 public class DiagnosticController {
 
     private final LlmDiagnosticService diagnosticService;
-    private final OllamaClient ollamaClient;
+    private final DiagnosticLlmProvider llmProvider;
 
-    public DiagnosticController(LlmDiagnosticService diagnosticService, OllamaClient ollamaClient) {
+    public DiagnosticController(LlmDiagnosticService diagnosticService, DiagnosticLlmProvider llmProvider) {
         this.diagnosticService = diagnosticService;
-        this.ollamaClient = ollamaClient;
+        this.llmProvider = llmProvider;
     }
 
     /**
@@ -66,18 +66,9 @@ public class DiagnosticController {
         return ResponseEntity.ok(diagnosticService.getAllDiagnoses());
     }
 
-    /**
-     * Health check endpoint reporting Ollama reachability and configured model.
-     */
+    /** Health check endpoint reporting the active provider and its configuration. */
     @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> getOllamaHealth() {
-        boolean available = ollamaClient.isAvailable();
-        return ResponseEntity.ok(Map.of(
-                "status", available ? "CONNECTED" : "UNREACHABLE",
-                "service", "Local Ollama LLM",
-                "model", ollamaClient.getProperties().getModel(),
-                "baseUrl", ollamaClient.getProperties().getBaseUrl(),
-                "enabled", ollamaClient.getProperties().isEnabled()
-        ));
+    public ResponseEntity<Map<String, Object>> getProviderHealth() {
+        return ResponseEntity.ok(llmProvider.getHealthStatus());
     }
 }
