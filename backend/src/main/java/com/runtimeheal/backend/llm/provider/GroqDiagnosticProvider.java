@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.runtimeheal.backend.llm.config.GroqProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,7 @@ public class GroqDiagnosticProvider implements DiagnosticLlmProvider {
     private volatile long lastAvailabilityCheck;
     private volatile boolean lastAvailability;
 
+    @Autowired
     public GroqDiagnosticProvider(GroqProperties properties, ObjectMapper objectMapper) {
         this(properties, objectMapper, HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))

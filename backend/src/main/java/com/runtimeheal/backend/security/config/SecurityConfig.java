@@ -35,10 +35,10 @@ public class SecurityConfig {
     @Value("${runtimeheal.security.enabled:true}")
     private boolean securityEnabled;
 
-    @Value("${soc.operator.id}")
+    @Value("${soc.operator.id:${SOC_OPERATOR_ID:admin}}")
     private String operatorId;
 
-    @Value("${soc.operator.passcode}")
+    @Value("${soc.operator.passcode:${SOC_OPERATOR_PASSCODE:admin}}")
     private String operatorPasscode;
 
     @Bean

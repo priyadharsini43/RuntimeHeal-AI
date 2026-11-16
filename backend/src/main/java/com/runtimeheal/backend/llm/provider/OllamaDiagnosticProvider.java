@@ -2,6 +2,7 @@ package com.runtimeheal.backend.llm.provider;
 
 import com.runtimeheal.backend.llm.client.OllamaClient;
 import com.runtimeheal.backend.llm.model.OllamaGenerateResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +14,7 @@ public class OllamaDiagnosticProvider implements DiagnosticLlmProvider {
 
     private final OllamaClient ollamaClient;
 
+    @Autowired
     public OllamaDiagnosticProvider(OllamaClient ollamaClient) {
         this.ollamaClient = ollamaClient;
     }
